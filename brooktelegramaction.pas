@@ -185,9 +185,9 @@ begin
             FtgSender.sendMessage(FCurrentChatID, Msg, pmHTML, True);
           end
           else
-            FtgSender.sendMessage(FCurrentChatID, 'Статистика за этот день не найдена');
+            FtgSender.sendMessage(FCurrentChatID, 'Statistics for this date not found');
         except
-          FtgSender.sendMessage(FCurrentChatID, 'Не удалось отобразить статистику');
+          FtgSender.sendMessage(FCurrentChatID, 'Error: failed to load statistics file');
         end;
       finally
         StatFile.Free;
@@ -200,6 +200,7 @@ var
   lCommand, Txt, S: String;
   lMessageEntityObj: TTelegramMessageEntityObj;
 begin
+  Txt:=UpdateObj.Message.Text;
   StatLog(Txt, utMessage);
   for lMessageEntityObj in UpdateObj.Message.Entities do
   begin
@@ -233,7 +234,7 @@ begin
         if lCommand = '/terminate' then
           if not IsSimpleUser then
           begin
-            FtgSender.sendMessage(FCurrentChatID, 'Бот закрывается');
+            FtgSender.sendMessage(FCurrentChatID, 'Bot app is closed');
             BrookApp.Terminate;
           end;
       end;
@@ -259,7 +260,7 @@ begin
       if not TryStrToDate(SDate, FDate, StatDateFormat) then
       begin
         FtgSender.WebhookRequest:=True;
-        FtgSender.sendMessage(FCurrentChatID, 'Не удалось распознать дату. Укажите в виде dd-mm-yyyy');
+        FtgSender.sendMessage(FCurrentChatID, 'Please enter the date in format: dd-mm-yyyy');
         Exit;
       end;
   DoGetStat(FDate, SendFile);
@@ -275,12 +276,12 @@ begin
   if FileExists(AFileName) then
   begin
     FtgSender.WebhookRequest:=False;
-    FtgSender.sendDocumentByFileName(FCurrentChatID, AFileName, 'Статистика за '+DateToStr(ADate));
+    FtgSender.sendDocumentByFileName(FCurrentChatID, AFileName, 'Statistics for '+DateToStr(ADate));
   end
   else
   begin
-    FtgSender.WebhookRequest:=False;
-    FtgSender.sendMessage(FCurrentChatID, 'Статистика за этот день не найдена');
+    FtgSender.WebhookRequest:=True;
+    FtgSender.sendMessage(FCurrentChatID, 'Statistics for this date not found');
   end;
 end;
 
@@ -298,17 +299,18 @@ begin
   ReplyMarkup:=TReplyMarkup.Create;
   try
     btns:=TInlineKeyboardButtons.Create;
-    btns.AddButton('Сегодня', 'GetStat'+FileApp+' today');
-    btns.AddButton('Вчера', 'GetStat'+FileApp+' yesterday');
+    btns.AddButton('Today', 'GetStat'+FileApp+' today');
+    btns.AddButton('Yesterday', 'GetStat'+FileApp+' yesterday');
     kybrd:=TJSONArray.Create;
     kybrd.Add(btns);
     ReplyMarkup.InlineKeyBoard:=kybrd;
     FtgSender.WebhookRequest:=True;
-    FtgSender.sendMessage(FCurrentChatID, 'Выберите статистику, нажав на нужную кнопку'+
-      LineEnding+'Доступны также команды: '+'/stat dd-mm-yyyy - за определенную дату, '+
-      '/stat today - за сегодня, /stat yesterday - за вчерашний день'+LineEnding+
-      '/statf dd-mm-yyyy - в файле csv за определенную дату'+LineEnding+
-      '/statf today - в файле csv за сегодня, /statf yesterday - в файле csv за вчерашний день',
+    FtgSender.sendMessage(FCurrentChatID,
+      'Select statistics by pressing the button. In addition, the available commands:'+
+      LineEnding+'/stat dd-mm-yyyy - the last record for a specified date, '+
+      '/stat today - ... today, /stat yesterday - ... yesterday'+LineEnding+
+      '/statf dd-mm-yyyy - statistics file for a specified date'+LineEnding+
+      '/statf today - ... today, /statf yesterday - ...yesterday',
       pmHTML, True, ReplyMarkup);
   finally
     ReplyMarkup.Free;

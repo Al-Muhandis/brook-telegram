@@ -39,6 +39,7 @@ Type
     Procedure EnsureActive;
     procedure CloseAndCreateNewLog;
   Public
+    constructor Create(AOwner: TComponent); override;
     Destructor Destroy; override;
     function GetFileNameFromDate(ADate: TDate): String;
     Procedure Pause;
@@ -91,6 +92,17 @@ begin
   ActivateLog;
 end;
 
+constructor TtgStatLog.Create(AOwner: TComponent);
+begin
+  inherited Create(AOwner);
+  FPaused:=True;
+  FDirectory:='';
+  FFilePostfix:='.csv';
+  FFilePrefix:='~log';
+  FFieldDelimiter:='; ';
+  AppendContent:=True;
+end;
+
 
 procedure TtgStatLog.Pause;
 
@@ -121,7 +133,7 @@ begin
   if CheckForNewLogFile then
     CloseAndCreateNewLog;
   If FTimeStampFormat='' then
-    FTimeStampFormat:='yyyy-mm-dd hh:nn:ss.zzz';
+    FTimeStampFormat:='yyyy-mm-dd hh:nn:ss';
   TS:=FormatDateTime(FTimeStampFormat,Now);
   S:=TS+FieldDelimiter+Msg+LineEnding;
   try
