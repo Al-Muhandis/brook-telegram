@@ -20,7 +20,7 @@ type
 
 implementation
 
-uses BrookException, sysutils;
+uses BrookException, sysutils, eventlog, brokers;
 
 constructor TMyAction.Create(ARequest: TBrookRequest; AResponse: TBrookResponse
   );
@@ -30,12 +30,19 @@ begin
   Token:='123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11';
   StartText:='Hi! It is simplest HelloBot based on brookframeork and TGBotLazarus!';
   HelpText:='This help text for the bot...';
+  { Please enter XXXXXX - [your ]user ID (integer value) for availabality of
+  admin commands (/stat, /statf /terminate)}
+  UserPermissions.Add('XXXXXX=a');
+  { You can do not create this log. If its value is nil,
+  then the logging just will not be maintained }
+  StatLogger.Paused:=False; // run statistics log
+  Logger:=BLogger;
 end;
 
 procedure TMyAction.Post;
 begin
   { If is is not a valid token passed from parameterized url then error raised }
-  if SameStr(Values.Values['token'], Token) then
+  if AnsiSameStr(Values.Values['token'], Token) then
     inherited Post
   else
     raise EBrookHttp404.Create('');
