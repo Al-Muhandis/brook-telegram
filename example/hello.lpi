@@ -1,0 +1,208 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CONFIG>
+  <ProjectOptions>
+    <Version Value="10"/>
+    <PathDelim Value="\"/>
+    <General>
+      <Flags>
+        <MainUnitHasCreateFormStatements Value="False"/>
+      </Flags>
+      <MainUnit Value="0"/>
+      <Title Value="hello"/>
+      <UseAppBundle Value="False"/>
+      <ResourceType Value="res"/>
+    </General>
+    <i18n>
+      <EnableI18N LFM="False"/>
+    </i18n>
+    <VersionInfo>
+      <StringTable ProductVersion=""/>
+    </VersionInfo>
+    <BuildModes Count="1" Active="Default">
+      <Item1 Name="Default" Default="True"/>
+    </BuildModes>
+    <PublishOptions>
+      <Version Value="2"/>
+    </PublishOptions>
+    <RunParams>
+      <local>
+        <FormatVersion Value="1"/>
+      </local>
+    </RunParams>
+    <RequiredPackages Count="2">
+      <Item1>
+        <PackageName Value="tgbotlazarus"/>
+      </Item1>
+      <Item2>
+        <PackageName Value="BrookRT"/>
+      </Item2>
+    </RequiredPackages>
+    <Units Count="8">
+      <Unit0>
+        <Filename Value="hello.lpr"/>
+        <IsPartOfProject Value="True"/>
+        <EditorIndex Value="-1"/>
+        <WindowIndex Value="-1"/>
+        <TopLine Value="-1"/>
+        <CursorPos X="-1" Y="-1"/>
+        <UsageCount Value="20"/>
+      </Unit0>
+      <Unit1>
+        <Filename Value="telegramwebhookaction.pas"/>
+        <IsPartOfProject Value="True"/>
+        <IsVisibleTab Value="True"/>
+        <TopLine Value="17"/>
+        <CursorPos X="42" Y="17"/>
+        <UsageCount Value="20"/>
+        <Loaded Value="True"/>
+      </Unit1>
+      <Unit2>
+        <Filename Value="brokers.pas"/>
+        <IsPartOfProject Value="True"/>
+        <UnitName Value="Brokers"/>
+        <EditorIndex Value="2"/>
+        <UsageCount Value="20"/>
+        <Loaded Value="True"/>
+      </Unit2>
+      <Unit3>
+        <Filename Value="..\brooktelegramaction.pas"/>
+        <EditorIndex Value="1"/>
+        <CursorPos X="83" Y="62"/>
+        <UsageCount Value="10"/>
+        <Loaded Value="True"/>
+      </Unit3>
+      <Unit4>
+        <Filename Value="C:\lazarus1_6\components\brookframework\core\brookaction.pas"/>
+        <UnitName Value="BrookAction"/>
+        <EditorIndex Value="-1"/>
+        <TopLine Value="250"/>
+        <CursorPos X="14" Y="259"/>
+        <UsageCount Value="10"/>
+      </Unit4>
+      <Unit5>
+        <Filename Value="C:\lazarus1_6\components\brookframework\core\brookhttpdefs.pas"/>
+        <UnitName Value="BrookHttpDefs"/>
+        <EditorIndex Value="-1"/>
+        <TopLine Value="14"/>
+        <CursorPos X="3" Y="25"/>
+        <UsageCount Value="10"/>
+      </Unit5>
+      <Unit6>
+        <Filename Value="C:\lazarus1_6\fpc\3.0.2\source\packages\fcl-json\src\fpjson.pp"/>
+        <EditorIndex Value="-1"/>
+        <TopLine Value="837"/>
+        <CursorPos X="12" Y="843"/>
+        <UsageCount Value="10"/>
+      </Unit6>
+      <Unit7>
+        <Filename Value="..\..\TGBotLazarus\trunk\tgtypes.pas"/>
+        <EditorIndex Value="-1"/>
+        <TopLine Value="140"/>
+        <CursorPos X="3" Y="148"/>
+        <UsageCount Value="10"/>
+      </Unit7>
+    </Units>
+    <JumpHistory Count="19" HistoryIndex="18">
+      <Position1>
+        <Filename Value="telegramwebhookaction.pas"/>
+        <Caret Line="8" Column="22"/>
+      </Position1>
+      <Position2>
+        <Filename Value="telegramwebhookaction.pas"/>
+        <Caret Line="13" Column="15" TopLine="4"/>
+      </Position2>
+      <Position3>
+        <Filename Value="telegramwebhookaction.pas"/>
+        <Caret Line="16" Column="42" TopLine="4"/>
+      </Position3>
+      <Position4>
+        <Filename Value="telegramwebhookaction.pas"/>
+        <Caret Line="24" Column="3" TopLine="13"/>
+      </Position4>
+      <Position5>
+        <Filename Value="telegramwebhookaction.pas"/>
+        <Caret Line="16" Column="44" TopLine="7"/>
+      </Position5>
+      <Position6>
+        <Filename Value="telegramwebhookaction.pas"/>
+        <Caret Line="17" Column="16" TopLine="7"/>
+      </Position6>
+      <Position7>
+        <Filename Value="telegramwebhookaction.pas"/>
+        <Caret Line="33" Column="45" TopLine="17"/>
+      </Position7>
+      <Position8>
+        <Filename Value="telegramwebhookaction.pas"/>
+        <Caret Line="16" Column="41" TopLine="5"/>
+      </Position8>
+      <Position9>
+        <Filename Value="..\brooktelegramaction.pas"/>
+      </Position9>
+      <Position10>
+        <Filename Value="..\brooktelegramaction.pas"/>
+        <Caret Line="72" Column="26" TopLine="61"/>
+      </Position10>
+      <Position11>
+        <Filename Value="..\brooktelegramaction.pas"/>
+        <Caret Line="373" Column="24" TopLine="362"/>
+      </Position11>
+      <Position12>
+        <Filename Value="telegramwebhookaction.pas"/>
+        <Caret Line="18" Column="23" TopLine="12"/>
+      </Position12>
+      <Position13>
+        <Filename Value="telegramwebhookaction.pas"/>
+        <Caret Line="33" Column="3" TopLine="17"/>
+      </Position13>
+      <Position14>
+        <Filename Value="..\brooktelegramaction.pas"/>
+        <Caret Line="204" Column="3" TopLine="198"/>
+      </Position14>
+      <Position15>
+        <Filename Value="..\brooktelegramaction.pas"/>
+        <Caret Line="72" Column="26" TopLine="61"/>
+      </Position15>
+      <Position16>
+        <Filename Value="telegramwebhookaction.pas"/>
+        <Caret Line="19" Column="30" TopLine="11"/>
+      </Position16>
+      <Position17>
+        <Filename Value="telegramwebhookaction.pas"/>
+        <Caret Line="41" Column="10" TopLine="25"/>
+      </Position17>
+      <Position18>
+        <Filename Value="telegramwebhookaction.pas"/>
+        <Caret Line="32" Column="86" TopLine="25"/>
+      </Position18>
+      <Position19>
+        <Filename Value="telegramwebhookaction.pas"/>
+        <Caret Line="24" Column="30" TopLine="13"/>
+      </Position19>
+    </JumpHistory>
+  </ProjectOptions>
+  <CompilerOptions>
+    <Version Value="11"/>
+    <PathDelim Value="\"/>
+    <Target>
+      <Filename Value="hello" ApplyConventions="False"/>
+    </Target>
+    <SearchPaths>
+      <IncludeFiles Value="$(ProjOutDir)"/>
+      <OtherUnitFiles Value=".."/>
+      <UnitOutputDirectory Value="lib\$(TargetCPU)-$(TargetOS)"/>
+    </SearchPaths>
+  </CompilerOptions>
+  <Debugging>
+    <Exceptions Count="3">
+      <Item1>
+        <Name Value="EAbort"/>
+      </Item1>
+      <Item2>
+        <Name Value="ECodetoolError"/>
+      </Item2>
+      <Item3>
+        <Name Value="EFOpenError"/>
+      </Item3>
+    </Exceptions>
+  </Debugging>
+</CONFIG>

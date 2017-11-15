@@ -58,8 +58,8 @@ type
     property RMsg: String read FRMsg write SetRMsg;
     property UpdateObj: TTelegramUpdateObj read FUpdateMessage write SetUpdateMessage;
     property UserPermissions: TStringList read FUserPermissions write FUserPermissions;
-    property StartText: String read FStartText write SetStartText;
-    property HelpText: String read FHelpText write SetHelpText;
+    property StartText: String read FStartText write SetStartText; // Text for /start command reply
+    property HelpText: String read FHelpText write SetHelpText;  // Text for /help command reply
     property StatLogger: TtgStatLog read FStatLogger write SetStatLogger;
     property Logger: TEventLog read FLogger write SetLogger;
     property CurrentUser: TTelegramUserObj read FCurrentUser;
@@ -69,7 +69,7 @@ type
 
 implementation
 
-uses jsonparser, fpjson, Brokers, BrookHttpConsts, strutils, BrookApplication;
+uses jsonparser, fpjson, BrookHttpConsts, strutils, BrookApplication;
 
 const
   UpdateTypeAliases: array[TUpdateType] of PChar = ('message', 'callback_query');
@@ -185,9 +185,9 @@ begin
             FtgSender.sendMessage(FCurrentChatID, Msg, pmHTML, True);
           end
           else
-            FtgSender.sendMessage(FCurrentChatID, 'РЎС‚Р°С‚РёСЃС‚РёРєР° Р·Р° СЌС‚РѕС‚ РґРµРЅСЊ РЅРµ РЅР°Р№РґРµРЅР°');
+            FtgSender.sendMessage(FCurrentChatID, 'Статистика за этот день не найдена');
         except
-          FtgSender.sendMessage(FCurrentChatID, 'РќРµ СѓРґР°Р»РѕСЃСЊ РѕС‚РѕР±СЂР°Р·РёС‚СЊ СЃС‚Р°С‚РёСЃС‚РёРєСѓ');
+          FtgSender.sendMessage(FCurrentChatID, 'Не удалось отобразить статистику');
         end;
       finally
         StatFile.Free;
@@ -233,7 +233,7 @@ begin
         if lCommand = '/terminate' then
           if not IsSimpleUser then
           begin
-            FtgSender.sendMessage(FCurrentChatID, 'Р‘РѕС‚ Р·Р°РєСЂС‹РІР°РµС‚СЃСЏ');
+            FtgSender.sendMessage(FCurrentChatID, 'Бот закрывается');
             BrookApp.Terminate;
           end;
       end;
@@ -259,7 +259,7 @@ begin
       if not TryStrToDate(SDate, FDate, StatDateFormat) then
       begin
         FtgSender.WebhookRequest:=True;
-        FtgSender.sendMessage(FCurrentChatID, 'РќРµ СѓРґР°Р»РѕСЃСЊ СЂР°СЃРїРѕР·РЅР°С‚СЊ РґР°С‚Сѓ. РЈРєР°Р¶РёС‚Рµ РІ РІРёРґРµ dd-mm-yyyy');
+        FtgSender.sendMessage(FCurrentChatID, 'Не удалось распознать дату. Укажите в виде dd-mm-yyyy');
         Exit;
       end;
   DoGetStat(FDate, SendFile);
@@ -275,12 +275,12 @@ begin
   if FileExists(AFileName) then
   begin
     FtgSender.WebhookRequest:=False;
-    FtgSender.sendDocumentByFileName(FCurrentChatID, AFileName, 'РЎС‚Р°С‚РёСЃС‚РёРєР° Р·Р° '+DateToStr(ADate));
+    FtgSender.sendDocumentByFileName(FCurrentChatID, AFileName, 'Статистика за '+DateToStr(ADate));
   end
   else
   begin
     FtgSender.WebhookRequest:=False;
-    FtgSender.sendMessage(FCurrentChatID, 'РЎС‚Р°С‚РёСЃС‚РёРєР° Р·Р° СЌС‚РѕС‚ РґРµРЅСЊ РЅРµ РЅР°Р№РґРµРЅР°');
+    FtgSender.sendMessage(FCurrentChatID, 'Статистика за этот день не найдена');
   end;
 end;
 
@@ -298,17 +298,17 @@ begin
   ReplyMarkup:=TReplyMarkup.Create;
   try
     btns:=TInlineKeyboardButtons.Create;
-    btns.AddButton('РЎРµРіРѕРґРЅСЏ', 'GetStat'+FileApp+' today');
-    btns.AddButton('Р’С‡РµСЂР°', 'GetStat'+FileApp+' yesterday');
+    btns.AddButton('Сегодня', 'GetStat'+FileApp+' today');
+    btns.AddButton('Вчера', 'GetStat'+FileApp+' yesterday');
     kybrd:=TJSONArray.Create;
     kybrd.Add(btns);
     ReplyMarkup.InlineKeyBoard:=kybrd;
     FtgSender.WebhookRequest:=True;
-    FtgSender.sendMessage(FCurrentChatID, 'Р’С‹Р±РµСЂРёС‚Рµ СЃС‚Р°С‚РёСЃС‚РёРєСѓ, РЅР°Р¶Р°РІ РЅР° РЅСѓР¶РЅСѓСЋ РєРЅРѕРїРєСѓ'+
-      LineEnding+'Р”РѕСЃС‚СѓРїРЅС‹ С‚Р°РєР¶Рµ РєРѕРјР°РЅРґС‹: '+'/stat dd-mm-yyyy - Р·Р° РѕРїСЂРµРґРµР»РµРЅРЅСѓСЋ РґР°С‚Сѓ, '+
-      '/stat today - Р·Р° СЃРµРіРѕРґРЅСЏ, /stat yesterday - Р·Р° РІС‡РµСЂР°С€РЅРёР№ РґРµРЅСЊ'+LineEnding+
-      '/statf dd-mm-yyyy - РІ С„Р°Р№Р»Рµ csv Р·Р° РѕРїСЂРµРґРµР»РµРЅРЅСѓСЋ РґР°С‚Сѓ'+LineEnding+
-      '/statf today - РІ С„Р°Р№Р»Рµ csv Р·Р° СЃРµРіРѕРґРЅСЏ, /statf yesterday - РІ С„Р°Р№Р»Рµ csv Р·Р° РІС‡РµСЂР°С€РЅРёР№ РґРµРЅСЊ',
+    FtgSender.sendMessage(FCurrentChatID, 'Выберите статистику, нажав на нужную кнопку'+
+      LineEnding+'Доступны также команды: '+'/stat dd-mm-yyyy - за определенную дату, '+
+      '/stat today - за сегодня, /stat yesterday - за вчерашний день'+LineEnding+
+      '/statf dd-mm-yyyy - в файле csv за определенную дату'+LineEnding+
+      '/statf today - в файле csv за сегодня, /statf yesterday - в файле csv за вчерашний день',
       pmHTML, True, ReplyMarkup);
   finally
     ReplyMarkup.Free;
