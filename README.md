@@ -1,3 +1,4 @@
 # brook-telegram
 Telegram plugin for brookframework
-Inherite of the class TBrookAction for convenient work with Telegram API. Hepl you to create bots
+Inherite of the class TBrookAction for convenient work with Telegram API. Help you to create bots.
+It's based on https://github.com/silvioprog/brookframework and https://github.com/MstrVLT/TGBotLazarus
