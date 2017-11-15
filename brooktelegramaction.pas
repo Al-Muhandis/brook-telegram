@@ -20,7 +20,6 @@ type
     FOnCallbackQuery: TNotifyEvent;
     FOnUpdateMessage: TNotifyEvent;
     FRMsg: String;
-    FSender: TTelegramSender;
     FStartText: String;
     FStatLogger: TtgStatLog;
     FToken: String;
@@ -64,7 +63,7 @@ type
     property Logger: TEventLog read FLogger write SetLogger;
     property CurrentUser: TTelegramUserObj read FCurrentUser;
     property CurrentChatID: Int64 read FCurrentChatID;
-    property Sender: TTelegramSender read FSender;
+    property Sender: TTelegramSender read FtgSender;
   end;
 
 implementation
@@ -85,6 +84,8 @@ procedure TWebhookAction.SetToken(AValue: String);
 begin
   if FToken=AValue then Exit;
   FToken:=AValue;
+  if Assigned(FtgSender) then
+    FtgSender.Token:=FToken;
 end;
 
 procedure TWebhookAction.SetRMsg(AValue: String);
