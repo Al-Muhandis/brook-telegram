@@ -5,9 +5,23 @@ unit brooktelegramaction;
 interface
 
 uses
-  BrookAction, tgtypes, BrookHttpDefs, tgsendertypes, sysutils, classes, tgstatlog, eventlog;
+  BrookAction, tgtypes, BrookHttpDefs, tgsendertypes, sysutils, classes, tgstatlog, eventlog,
+  ghashmap;
 
 type
+
+  TCommandEvent = procedure (AReceiver: TBrookAction; const ACommand: String;
+    AMessage: TTelegramMessageObj) of object;
+
+  { TStringHash }
+
+  TStringHash = class
+    class function hash(s: String; n: Integer): Integer;
+  end;
+
+  generic TStringHashMap<T> = class(specialize THashMap<String,T,TStringHash>) end;
+
+  TCommandHandlersMap = specialize TStringHashMap<TCommandEvent>;
 
   { TWebhookAction }
 
@@ -26,6 +40,9 @@ type
     FtgSender: TTelegramSender;
     FUpdateMessage: TTelegramUpdateObj;
     FUserPermissions: TStringList; // namevalue pairs UserID=Character
+    FCommandHandlers: TCommandHandlersMap;
+    function GetCommandHandlers(const Command: String): TCommandEvent;
+    procedure SetCommandHandlers(const Command: String; AValue: TCommandEvent);
     procedure SetHelpText(AValue: String);
     procedure SetLogger(AValue: TEventLog);
     procedure SetOnCallbackQuery(AValue: TNotifyEvent);
@@ -64,6 +81,8 @@ type
     property CurrentUser: TTelegramUserObj read FCurrentUser;
     property CurrentChatID: Int64 read FCurrentChatID;
     property Sender: TTelegramSender read FtgSender;
+    property CommandHandlers [const Command: String]: TCommandEvent read GetCommandHandlers
+      write SetCommandHandlers;  // It can create command handlers by assigning their to array elements
   end;
 
 implementation
@@ -73,6 +92,18 @@ uses jsonparser, fpjson, BrookHttpConsts, strutils, BrookApplication;
 const
   UpdateTypeAliases: array[TUpdateType] of PChar = ('message', 'callback_query');
   StatDateFormat = 'dd-mm-yyyy';
+
+{ TStringHash }
+
+class function TStringHash.hash(s: String; n: Integer): Integer;
+var
+  c: Char;
+begin
+  Result := 0;
+  for c in s do
+    Inc(Result,Ord(c));
+  Result := Result mod n;
+end;
 
 procedure TWebhookAction.SetUpdateMessage(AValue: TTelegramUpdateObj);
 begin
@@ -122,6 +153,17 @@ procedure TWebhookAction.SetHelpText(AValue: String);
 begin
   if FHelpText=AValue then Exit;
   FHelpText:=AValue;
+end;
+
+function TWebhookAction.GetCommandHandlers(const Command: String): TCommandEvent;
+begin
+  Result:=FCommandHandlers.Items[Command];
+end;
+
+procedure TWebhookAction.SetCommandHandlers(const Command: String;
+  AValue: TCommandEvent);
+begin
+  FCommandHandlers.Items[Command]:=AValue;
 end;
 
 procedure TWebhookAction.SetLogger(AValue: TEventLog);
@@ -200,6 +242,7 @@ procedure TWebhookAction.DoMessageHandler;
 var
   lCommand, Txt, S: String;
   lMessageEntityObj: TTelegramMessageEntityObj;
+  H: TCommandEvent;
 begin
   Txt:=UpdateObj.Message.Text;
   StatLog(Txt, utMessage);
@@ -209,6 +252,12 @@ begin
     if (lMessageEntityObj.TypeEntity = 'bot_command') and (lMessageEntityObj.Offset = 0) then
     begin
       lCommand := Copy(Txt, lMessageEntityObj.Offset, lMessageEntityObj.Length);
+      if FCommandHandlers.contains(lCommand) then
+      begin
+        H:=FCommandHandlers.Items[lCommand];
+        H(Self, lCommand, UpdateObj.Message);
+        Exit;
+      end;
       FtgSender.WebhookRequest:=True;
       if lCommand = '/help' then
         FtgSender.sendMessage(FCurrentChatID, FHelpText);
@@ -352,10 +401,12 @@ begin
   FStatLogger.Active:=False;
   FtgSender:=TTelegramSender.Create(FToken);
   FtgSender.OnLogMessage:=@LogMessage;
+  FCommandHandlers:=TCommandHandlersMap.create;
 end;
 
 destructor TWebhookAction.Destroy;
 begin
+  FCommandHandlers.Free;
   FtgSender.Free;
   FStatLogger.Free;
   FUserPermissions.Free;
