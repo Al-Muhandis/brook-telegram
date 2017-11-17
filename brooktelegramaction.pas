@@ -213,7 +213,7 @@ begin
       StatFile:=TStringList.Create;
       try
         AFileName:=StatLogger.GetFileNameFromDate(ADate);
-        FtgSender.WebhookRequest:=True;
+        FtgSender.RequestWhenAnswer:=True;
         try
           if FileExists(AFileName) then
           begin
@@ -258,7 +258,7 @@ begin
         H(Self, lCommand, UpdateObj.Message);
         Exit;
       end;
-      FtgSender.WebhookRequest:=True;
+      FtgSender.RequestWhenAnswer:=True;
       if lCommand = '/help' then
         FtgSender.sendMessage(FCurrentChatID, FHelpText);
       if lCommand = '/start' then
@@ -309,7 +309,7 @@ begin
     else
       if not TryStrToDate(SDate, FDate, StatDateFormat) then
       begin
-        FtgSender.WebhookRequest:=True;
+        FtgSender.RequestWhenAnswer:=True;
         FtgSender.sendMessage(FCurrentChatID, 'Please enter the date in format: dd-mm-yyyy');
         Exit;
       end;
@@ -325,12 +325,12 @@ begin
   AFileName:=StatLogger.GetFileNameFromDate(ADate);
   if FileExists(AFileName) then
   begin
-    FtgSender.WebhookRequest:=False;
+    FtgSender.RequestWhenAnswer:=False;
     FtgSender.sendDocumentByFileName(FCurrentChatID, AFileName, 'Statistics for '+DateToStr(ADate));
   end
   else
   begin
-    FtgSender.WebhookRequest:=True;
+    FtgSender.RequestWhenAnswer:=True;
     FtgSender.sendMessage(FCurrentChatID, 'Statistics for this date not found');
   end;
 end;
@@ -354,7 +354,7 @@ begin
     kybrd:=TJSONArray.Create;
     kybrd.Add(btns);
     ReplyMarkup.InlineKeyBoard:=kybrd;
-    FtgSender.WebhookRequest:=True;
+    FtgSender.RequestWhenAnswer:=True;
     FtgSender.sendMessage(FCurrentChatID,
       'Select statistics by pressing the button. In addition, the available commands:'+
       LineEnding+'/stat dd-mm-yyyy - the last record for a specified date, '+
