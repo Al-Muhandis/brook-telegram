@@ -5,7 +5,7 @@ unit brooktelegramaction;
 interface
 
 uses
-  BrookAction, tgtypes, BrookHttpDefs, tgsendertypes, sysutils, classes, tgstatlog, eventlog,
+  BrookAction, tgtypes, tgsendertypes, sysutils, classes, tgstatlog, eventlog,
   ghashmap;
 
 type
@@ -64,8 +64,7 @@ type
     procedure DoMessageHandler; virtual;
     function IsSimpleUser: Boolean;
   public
-    constructor Create(ARequest: TBrookRequest; AResponse: TBrookResponse); overload;
-      override;
+    constructor Create; override;
     destructor Destroy; override;
     procedure Post; override;
     property Token: String read FToken write SetToken;
@@ -389,10 +388,9 @@ begin
       StatLogger.Log(['', '', '', '', UpdateTypeAliases[UpdateType], '"'+EscMsg+'"'])
 end;
 
-constructor TWebhookAction.Create(ARequest: TBrookRequest;
-  AResponse: TBrookResponse);
+constructor TWebhookAction.Create;
 begin
-  inherited Create(ARequest, AResponse);
+  inherited Create;
   FCurrentUser:=nil;
   FUserPermissions:=TStringList.Create;
   FUserPermissions.Sorted:=True;
