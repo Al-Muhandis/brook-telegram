@@ -12,6 +12,8 @@ type
 
   TCommandEvent = procedure (AReceiver: TBrookAction; const ACommand: String;
     AMessage: TTelegramMessageObj) of object;
+  TCallbackEvent = procedure (AReceiver: TBrookAction; ACallback: TCallbackQueryObj) of object;
+  TMessageEvent = procedure (AReceiver: TBrookAction; AMessage: TTelegramMessageObj) of object;
 
   { TStringHash }
 
@@ -31,8 +33,8 @@ type
     FCurrentUser: TTelegramUserObj;
     FHelpText: String;
     FLogger: TEventLog;
-    FOnCallbackQuery: TNotifyEvent;
-    FOnUpdateMessage: TNotifyEvent;
+    FOnCallbackQuery: TCallbackEvent;
+    FOnUpdateMessage: TMessageEvent;
     FRMsg: String;
     FStartText: String;
     FStatLogger: TtgStatLog;
@@ -45,8 +47,8 @@ type
     procedure SetCommandHandlers(const Command: String; AValue: TCommandEvent);
     procedure SetHelpText(AValue: String);
     procedure SetLogger(AValue: TEventLog);
-    procedure SetOnCallbackQuery(AValue: TNotifyEvent);
-    procedure SetOnUpdateMessage(AValue: TNotifyEvent);
+    procedure SetOnCallbackQuery(AValue: TCallbackEvent);
+    procedure SetOnUpdateMessage(AValue: TMessageEvent);
     procedure SetRMsg(AValue: String);
     procedure SetStartText(AValue: String);
     procedure SetStatLogger(AValue: TtgStatLog);
@@ -68,8 +70,8 @@ type
     destructor Destroy; override;
     procedure Post; override;
     property Token: String read FToken write SetToken;
-    property OnCallbackQuery: TNotifyEvent read FOnCallbackQuery write SetOnCallbackQuery;
-    property OnUpdateMessage: TNotifyEvent read FOnUpdateMessage write SetOnUpdateMessage;
+    property OnCallbackQuery: TCallbackEvent read FOnCallbackQuery write SetOnCallbackQuery;
+    property OnUpdateMessage: TMessageEvent read FOnUpdateMessage write SetOnUpdateMessage;
     property RMsg: String read FRMsg write SetRMsg;
     property UpdateObj: TTelegramUpdateObj read FUpdateMessage write SetUpdateMessage;
     property UserPermissions: TStringList read FUserPermissions write FUserPermissions;
@@ -136,13 +138,13 @@ begin
   FStatLogger:=AValue;
 end;
 
-procedure TWebhookAction.SetOnCallbackQuery(AValue: TNotifyEvent);
+procedure TWebhookAction.SetOnCallbackQuery(AValue: TCallbackEvent);
 begin
   if FOnCallbackQuery=AValue then Exit;
   FOnCallbackQuery:=AValue;
 end;
 
-procedure TWebhookAction.SetOnUpdateMessage(AValue: TNotifyEvent);
+procedure TWebhookAction.SetOnUpdateMessage(AValue: TMessageEvent);
 begin
   if FOnUpdateMessage=AValue then Exit;
   FOnUpdateMessage:=AValue;
@@ -190,7 +192,7 @@ begin
   end;
   StatLog(UpdateObj.CallbackQuery.Data, utCallbackQuery);
   if Assigned(FOnCallbackQuery) then
-    FOnCallbackQuery(Self);
+    FOnCallbackQuery(Self, UpdateObj.CallbackQuery);
 end;
 
 procedure TWebhookAction.DoCallbackQueryStat(SendFile: Boolean = False);
@@ -290,7 +292,7 @@ begin
     end;
   end;
   if Assigned(FOnUpdateMessage) then
-    FOnUpdateMessage(Self);
+    FOnUpdateMessage(Self, UpdateObj.Message);
 end;
 
 procedure TWebhookAction.DoStat(SDate: String = 'today'; SendFile: Boolean = false);
