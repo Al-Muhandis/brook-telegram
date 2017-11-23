@@ -251,9 +251,15 @@ begin
       end;
       FtgSender.RequestWhenAnswer:=True;
       if lCommand = '/help' then
+      begin
         FtgSender.sendMessage(FCurrentChatID, FHelpText);
+        Exit;
+      end;
       if lCommand = '/start' then
+      begin
         FtgSender.sendMessage(FCurrentChatID, FStartText);
+        Exit;
+      end;
       if not IsSimpleUser then
       begin
         if lCommand = '/stat' then
@@ -263,6 +269,7 @@ begin
             DoStat(S)
           else
             SendStatInlineKeyboard;
+          Exit;
         end;
         if lCommand = '/statf' then
         begin
@@ -271,13 +278,14 @@ begin
             DoStat(S, True)
           else
             SendStatInlineKeyboard(True);
+          Exit;
         end;
         if lCommand = '/terminate' then
-          if not IsSimpleUser then
-          begin
-            FtgSender.sendMessage(FCurrentChatID, 'Bot app is closed');
-            BrookApp.Terminate;
-          end;
+        begin
+          FtgSender.sendMessage(FCurrentChatID, 'Bot app is closed');
+          BrookApp.Terminate;
+          Exit;
+        end;
       end;
     end;
   end;
