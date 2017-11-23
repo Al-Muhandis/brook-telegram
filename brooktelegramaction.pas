@@ -35,7 +35,6 @@ type
     FLogger: TEventLog;
     FOnCallbackQuery: TCallbackEvent;
     FOnUpdateMessage: TMessageEvent;
-    FRMsg: String;
     FStartText: String;
     FStatLogger: TtgStatLog;
     FToken: String;
@@ -49,7 +48,6 @@ type
     procedure SetLogger(AValue: TEventLog);
     procedure SetOnCallbackQuery(AValue: TCallbackEvent);
     procedure SetOnUpdateMessage(AValue: TMessageEvent);
-    procedure SetRMsg(AValue: String);
     procedure SetStartText(AValue: String);
     procedure SetStatLogger(AValue: TtgStatLog);
     procedure SetToken(AValue: String);
@@ -72,7 +70,6 @@ type
     property Token: String read FToken write SetToken;
     property OnCallbackQuery: TCallbackEvent read FOnCallbackQuery write SetOnCallbackQuery;
     property OnUpdateMessage: TMessageEvent read FOnUpdateMessage write SetOnUpdateMessage;
-    property RMsg: String read FRMsg write SetRMsg;
     property UpdateObj: TTelegramUpdateObj read FUpdateMessage write SetUpdateMessage;
     property UserPermissions: TStringList read FUserPermissions write FUserPermissions;
     property StartText: String read FStartText write SetStartText; // Text for /start command reply
@@ -88,7 +85,7 @@ type
 
 implementation
 
-uses jsonparser, fpjson, BrookHttpConsts, strutils, BrookApplication;
+uses jsonparser, fpjson, BrookHttpConsts, strutils, BrookApplication, jsonscanner;
 
 const
   UpdateTypeAliases: array[TUpdateType] of PChar = ('message', 'callback_query');
@@ -118,12 +115,6 @@ begin
   FToken:=AValue;
   if Assigned(FtgSender) then
     FtgSender.Token:=FToken;
-end;
-
-procedure TWebhookAction.SetRMsg(AValue: String);
-begin
-  if FRMsg=AValue then Exit;
-  FRMsg:=AValue;
 end;
 
 procedure TWebhookAction.SetStartText(AValue: String);
@@ -249,7 +240,6 @@ begin
   StatLog(Txt, utMessage);
   for lMessageEntityObj in UpdateObj.Message.Entities do
   begin
-    RMsg:='';
     if (lMessageEntityObj.TypeEntity = 'bot_command') and (lMessageEntityObj.Offset = 0) then
     begin
       lCommand := Copy(Txt, lMessageEntityObj.Offset, lMessageEntityObj.Length);
@@ -424,7 +414,7 @@ begin
   LogMessage(Self, etDebug, 'Recieve the update (Webhook): '+Msg);
   if Msg<>EmptyStr then
   begin
-    lParser := TJSONParser.Create(Msg);
+    lParser := TJSONParser.Create(Msg, DefaultOptions);
     try
       try
         UpdateObj :=
