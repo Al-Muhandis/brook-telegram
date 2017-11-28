@@ -59,12 +59,12 @@ type
     procedure SendStatInlineKeyboard(SendFile: Boolean = false);
     procedure LogMessage(Sender: TObject; EventType: TEventType; const Msg: String);
     procedure StatLog(const AMessage: String; UpdateType: TUpdateType);
-    procedure EditOrSendMessage(const AMessage: String; AParseMode: TParseMode = pmDefault;
-      ReplyMarkup: TReplyMarkup = nil; TryEdit: Boolean = False);
   protected
     function CreateInlineKeyboardStat(SendFile: Boolean): TJSONArray;
     procedure DoCallbackQuery; virtual;
     procedure DoMessageHandler; virtual;
+    procedure EditOrSendMessage(const AMessage: String; AParseMode: TParseMode = pmDefault;
+      ReplyMarkup: TReplyMarkup = nil; TryEdit: Boolean = False);
     function IsSimpleUser: Boolean;
   public
     constructor Create; override;
