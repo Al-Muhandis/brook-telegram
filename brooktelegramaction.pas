@@ -6,7 +6,7 @@ interface
 
 uses
   BrookAction, tgtypes, tgsendertypes, sysutils, classes, tgstatlog, eventlog,
-  ghashmap;
+  ghashmap, fpjson;
 
 type
 
@@ -55,11 +55,14 @@ type
     procedure DoCallbackQueryStat(SendFile: Boolean = False);
     procedure DoGetStat(ADate: TDate = 0; SendFile: Boolean = false);
     procedure DoStat(SDate: String = 'today'; SendFile: Boolean = false);
-    procedure SendStatLog(ADate: TDate = 0);
+    procedure SendStatLog(ADate: TDate = 0; AReplyMarkup: TReplyMarkup = nil);
     procedure SendStatInlineKeyboard(SendFile: Boolean = false);
     procedure LogMessage(Sender: TObject; EventType: TEventType; const Msg: String);
     procedure StatLog(const AMessage: String; UpdateType: TUpdateType);
+    procedure EditOrSendMessage(const AMessage: String; AParseMode: TParseMode = pmDefault;
+      ReplyMarkup: TReplyMarkup = nil; TryEdit: Boolean = False);
   protected
+    function CreateInlineKeyboardStat(SendFile: Boolean): TJSONArray;
     procedure DoCallbackQuery; virtual;
     procedure DoMessageHandler; virtual;
     function IsSimpleUser: Boolean;
@@ -85,7 +88,7 @@ type
 
 implementation
 
-uses jsonparser, fpjson, BrookHttpConsts, strutils, BrookApplication, jsonscanner;
+uses jsonparser, BrookHttpConsts, strutils, BrookApplication, jsonscanner;
 
 const
   UpdateTypeAliases: array[TUpdateType] of PChar = ('message', 'callback_query');
@@ -197,10 +200,15 @@ var
   Msg: String;
   AFileName: String;
   i: Integer;
+  ReplyMarkup: TReplyMarkup;
 begin
-  if not IsSimpleUser then
+  if IsSimpleUser then
+  Exit;
+  ReplyMarkup:=TReplyMarkup.Create;
+  try
+    ReplyMarkup.InlineKeyBoard:=CreateInlineKeyboardStat(SendFile);
     if SendFile then
-      SendStatLog(ADate)
+      SendStatLog(ADate, ReplyMarkup)
     else begin
       StatFile:=TStringList.Create;
       try
@@ -217,17 +225,20 @@ begin
                 Break;
               Msg+=StatFile[i]+LineEnding;
             end;
-            FtgSender.sendMessage(FCurrentChatID, Msg, pmHTML, True);
+            EditOrSendMessage(Msg, pmHTML, ReplyMarkup, True);
           end
           else
-            FtgSender.sendMessage(FCurrentChatID, 'Statistics for this date not found');
+            EditOrSendMessage('Statistics for this date not found', pmDefault, ReplyMarkup, True);
         except
-          FtgSender.sendMessage(FCurrentChatID, 'Error: failed to load statistics file');
+          EditOrSendMessage('Error: failed to load statistics file', pmDefault, ReplyMarkup);
         end;
       finally
         StatFile.Free;
       end;
     end;
+  finally
+    ReplyMarkup.Free;
+  end;
 end;
 
 procedure TWebhookAction.DoMessageHandler;
@@ -315,7 +326,7 @@ begin
   DoGetStat(FDate, SendFile);
 end;
 
-procedure TWebhookAction.SendStatLog(ADate: TDate = 0);
+procedure TWebhookAction.SendStatLog(ADate: TDate = 0; AReplyMarkup: TReplyMarkup = nil);
 var
   AFileName: String;
 begin
@@ -330,36 +341,23 @@ begin
   else
   begin
     FtgSender.RequestWhenAnswer:=True;
-    FtgSender.sendMessage(FCurrentChatID, 'Statistics for this date not found');
+    EditOrSendMessage('Statistics for this date not found', pmDefault, AReplyMarkup, True);
   end;
 end;
 
 procedure TWebhookAction.SendStatInlineKeyboard(SendFile: Boolean);
 var
   ReplyMarkup: TReplyMarkup;
-  kybrd: TJSONArray;
-  btns: TInlineKeyboardButtons;
-  FileApp: String;
 begin
-  if SendFile then
-    FileApp:='File'
-  else
-    FileApp:='';
   ReplyMarkup:=TReplyMarkup.Create;
   try
-    btns:=TInlineKeyboardButtons.Create;
-    btns.AddButton('Today', 'GetStat'+FileApp+' today');
-    btns.AddButton('Yesterday', 'GetStat'+FileApp+' yesterday');
-    kybrd:=TJSONArray.Create;
-    kybrd.Add(btns);
-    ReplyMarkup.InlineKeyBoard:=kybrd;
+    ReplyMarkup.InlineKeyBoard:=CreateInlineKeyboardStat(SendFile);
     FtgSender.RequestWhenAnswer:=True;
     FtgSender.sendMessage(FCurrentChatID,
       'Select statistics by pressing the button. In addition, the available commands:'+
-      LineEnding+'/stat dd-mm-yyyy - the last record for a specified date, '+
-      '/stat today - ... today, /stat yesterday - ... yesterday'+LineEnding+
-      '/statf dd-mm-yyyy - statistics file for a specified date'+LineEnding+
-      '/statf today - ... today, /statf yesterday - ...yesterday',
+      LineEnding+'/stat <i>day</i> - the last records for a specified <i>date</i>, '+
+      '/statf <i>date</i> - statistics file for the <i>date</i>,'+LineEnding+
+      'where <i>date</i> is <i>today</i> or <i>yesterday</i> or in format <i>dd-mm-yyyy</i>',
       pmHTML, True, ReplyMarkup);
   finally
     ReplyMarkup.Free;
@@ -386,6 +384,41 @@ begin
         FCurrentUser.Language_code, UpdateTypeAliases[UpdateType], '"'+EscMsg+'"'])
     else
       StatLogger.Log(['', '', '', '', UpdateTypeAliases[UpdateType], '"'+EscMsg+'"'])
+end;
+
+{ Sometimes, if the message is sent to the result of the CallBack call,
+it is desirable not to create a new message and edit the message from which the call came }
+procedure TWebhookAction.EditOrSendMessage(const AMessage: String;
+  AParseMode: TParseMode; ReplyMarkup: TReplyMarkup; TryEdit: Boolean);
+begin
+  if TryEdit then
+  begin
+    TryEdit:=False;
+    if Assigned(UpdateObj.CallbackQuery) then
+      if Assigned(UpdateObj.CallbackQuery.Message) then
+        TryEdit:=True;
+  end;
+  if not TryEdit then
+    Sender.sendMessage(CurrentChatID, AMessage, AParseMode, True, ReplyMarkup)
+  else
+    Sender.editMessageText(AMessage, CurrentChatID, UpdateObj.CallbackQuery.Message.MessageId,
+      AParseMode, False, '', ReplyMarkup);
+end;
+
+function TWebhookAction.CreateInlineKeyboardStat(SendFile: Boolean): TJSONArray;
+var
+  btns: TInlineKeyboardButtons;
+  FileApp: String;
+begin
+  if SendFile then
+    FileApp:='File'
+  else
+    FileApp:='';
+  btns:=TInlineKeyboardButtons.Create;
+  btns.AddButtons(['Today', 'GetStat'+FileApp+' today',
+    'Yesterday', 'GetStat'+FileApp+' yesterday']);
+  Result:=TJSONArray.Create;
+  Result.Add(btns);
 end;
 
 constructor TWebhookAction.Create;
