@@ -42,8 +42,10 @@ begin
   { This isnt real telegram token! Please get token from
   https://core.telegram.org/bots#botfather }
   Token:='123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11';
-  StartText:='Hi! It is simplest HelloBot based on brookframeork and TGBotLazarus!';
-  HelpText:='This help text for the bot...';
+  StartText:='Hi! It is simplest HelloBot based on brookframework and fp-telegram!';
+  HelpText:=
+    'This help text for the bot... See code at https://github.com/Al-Muhandis/brook-telegram/'+
+    'and  https://github.com/Al-Muhandis/fp-telegram';
 
   { Custom command definition example }
   CommandHandlers['TestCmd']:=@TlgrmTestCmdHandler;
