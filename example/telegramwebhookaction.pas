@@ -5,13 +5,16 @@ unit telegramwebhookaction;
 interface
 
 uses
-  BrookAction, brooktelegramaction, BrookHttpDefs;
+  BrookAction, brooktelegramaction, BrookHttpDefs, tgtypes;
 
 type
 
   { TMyAction }
 
   TMyAction = class(TWebhookAction)
+  protected
+    procedure TlgrmTestCmdHandler(AReceiver: TBrookAction; const ACommand: String;
+      AMessage: TTelegramMessageObj);
   public
     constructor Create(ARequest: TBrookRequest; AResponse: TBrookResponse); overload;
       override;
@@ -20,7 +23,17 @@ type
 
 implementation
 
-uses BrookException, sysutils, eventlog, brokers;
+uses BrookException, sysutils, brokers;
+
+{ Handler for the "TestCmd" telegram command (It is called through /TestCmd in chat with bot) }
+procedure TMyAction.TlgrmTestCmdHandler(AReceiver: TBrookAction;
+  const ACommand: String; AMessage: TTelegramMessageObj);
+begin
+  Sender.RequestWhenAnswer:=True; // You can set to False if you want to see Telegram endpoint reply
+  Sender.sendMessage(CurrentChatID,
+    'This is the response to the /'+ACommand+
+    ' command which processed by the TlgrmTestCmd procedure');
+end;
 
 constructor TMyAction.Create(ARequest: TBrookRequest; AResponse: TBrookResponse
   );
@@ -31,9 +44,13 @@ begin
   Token:='123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11';
   StartText:='Hi! It is simplest HelloBot based on brookframeork and TGBotLazarus!';
   HelpText:='This help text for the bot...';
+
+  { Custom command definition example }
+  CommandHandlers['TestCmd']:=@TlgrmTestCmdHandler;
+
   { Please enter XXXXXX - [your ]user ID (integer value) for availabality of
   admin commands (/stat, /statf /terminate)}
-  UserPermissions.Add('XXXXXX=a');
+  UserPermissions.Add('XXXXXX=a');  // You can comment out this if you do not need this functionality
   { You can do not create this log. If its value is nil,
   then the logging just will not be maintained }
   StatLogger.Paused:=False; // run statistics log
