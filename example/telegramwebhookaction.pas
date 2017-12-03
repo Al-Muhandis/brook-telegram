@@ -31,7 +31,7 @@ procedure TMyAction.TlgrmTestCmdHandler(AReceiver: TBrookAction;
 begin
   Sender.RequestWhenAnswer:=True; // You can set to False if you want to see Telegram endpoint reply
   Sender.sendMessage(CurrentChatID,
-    'This is the response to the /'+ACommand+
+    'This is the response to the '+ACommand+
     ' command which processed by the TlgrmTestCmd procedure');
 end;
 
@@ -44,11 +44,11 @@ begin
   Token:='123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11';
   StartText:='Hi! It is simplest HelloBot based on brookframework and fp-telegram!';
   HelpText:=
-    'This help text for the bot... See code at https://github.com/Al-Muhandis/brook-telegram/'+
+    'This help text for the bot... See code at https://github.com/Al-Muhandis/brook-telegram '+
     'and  https://github.com/Al-Muhandis/fp-telegram';
 
   { Custom command definition example }
-  CommandHandlers['TestCmd']:=@TlgrmTestCmdHandler;
+  CommandHandlers['/testcmd']:=@TlgrmTestCmdHandler;
 
   { Please enter XXXXXX - [your ]user ID (integer value) for availabality of
   admin commands (/stat, /statf /terminate)}

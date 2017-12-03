@@ -57,7 +57,7 @@ type
     procedure DoStat(SDate: String = 'today'; SendFile: Boolean = false);
     procedure SendStatLog(ADate: TDate = 0; AReplyMarkup: TReplyMarkup = nil);
     procedure SendStatInlineKeyboard(SendFile: Boolean = false);
-    procedure LogMessage(Sender: TObject; EventType: TEventType; const Msg: String);
+    procedure LogMessage(ASender: TObject; EventType: TEventType; const Msg: String);
     procedure StatLog(const AMessage: String; UpdateType: TUpdateType);
   protected
     function CreateInlineKeyboardStat(SendFile: Boolean): TJSONArray;
@@ -364,7 +364,7 @@ begin
   end;
 end;
 
-procedure TWebhookAction.LogMessage(Sender: TObject; EventType: TEventType; const Msg: String);
+procedure TWebhookAction.LogMessage(ASender: TObject; EventType: TEventType; const Msg: String);
 begin
   if Assigned(FLogger) then
     Logger.Log(EventType, Msg);
@@ -455,7 +455,7 @@ begin
   LogMessage(Self, etDebug, 'Recieve the update (Webhook): '+Msg);
   if Msg<>EmptyStr then
   begin
-    lParser := TJSONParser.Create(Msg, DefaultOptions);
+    lParser := TJSONParser.Create(Msg);
     try
       try
         UpdateObj :=
