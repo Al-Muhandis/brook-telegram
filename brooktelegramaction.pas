@@ -415,7 +415,7 @@ begin
   else
     FileApp:='';
   btns:=TInlineKeyboardButtons.Create;
-  btns.AddButtons(['Today', 'GetStat'+FileApp+' today',
+  btns.AddButtons(['Today 🔃', 'GetStat'+FileApp+' today',
     'Yesterday', 'GetStat'+FileApp+' yesterday']);
   Result:=TJSONArray.Create;
   Result.Add(btns);
