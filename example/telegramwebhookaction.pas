@@ -61,7 +61,7 @@ end;
 procedure TMyAction.Post;
 begin
   { If is is not a valid token passed from parameterized url then error raised }
-  if AnsiSameStr(Values.Values['token'], Token) then
+  if AnsiSameStr({$IFNDEF bf30}Variables{$ELSE}Values{$ENDIF}.Values['token'], Token) then
     inherited Post
   else
     raise EBrookHttp404.Create('');

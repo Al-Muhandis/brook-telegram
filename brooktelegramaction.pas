@@ -6,7 +6,7 @@ interface
 
 uses
   BrookAction, tgtypes, tgsendertypes, sysutils, classes, tgstatlog, eventlog,
-  ghashmap, fpjson;
+  fpjson;
 
 type
   { TWebhookAction }
@@ -42,7 +42,7 @@ type
     procedure SetUpdateMessage(AValue: TTelegramUpdateObj);
     procedure DoCallbackQueryStat(ACallbackQuery: TCallbackQueryObj; SendFile: Boolean = False);
     procedure DoGetStat(ADate: TDate = 0; SendFile: Boolean = false);
-    procedure DoStat(SDate: String = 'today'; SendFile: Boolean = false);
+    procedure DoStat(const SDate: String; SendFile: Boolean = false);
     procedure SendStatLog(ADate: TDate = 0; AReplyMarkup: TReplyMarkup = nil);
     procedure SendStatInlineKeyboard(SendFile: Boolean = false);
     procedure LogMessage(ASender: TObject; EventType: TEventType; const Msg: String);
@@ -206,12 +206,8 @@ end;
 
 procedure TWebhookAction.BotMessageHandler(ASender: TObject;
   AMessage: TTelegramMessageObj);
-var
-  lCommand, Txt, S: String;
-  lMessageEntityObj: TTelegramMessageEntityObj;
-  H: TCommandEvent;
 begin
-  StatLog(Txt, utMessage);
+  StatLog(AMessage.Text, utMessage);
   if Assigned(FOnUpdateMessage) then
     FOnUpdateMessage(Self, AMessage);
 end;
@@ -269,20 +265,21 @@ begin
   end;
 end;
 
-procedure TWebhookAction.DoStat(SDate: String = 'today'; SendFile: Boolean = false);
+procedure TWebhookAction.DoStat(const SDate: String; SendFile: Boolean = false);
 var
   FDate: TDate;
+  S: String;
 begin
   if not Assigned(FStatLogger) then
     Exit;
-  SDate:=Trim(SDate);
-  if (SDate='today') or (SDate=EmptyStr) then
+  S:=Trim(SDate);
+  if (S='today') or (S=EmptyStr) then
     FDate:=Date
   else
-    if SDate='yesterday' then
+    if S='yesterday' then
       FDate:=Date-1
     else
-      if not TryStrToDate(SDate, FDate, StatDateFormat) then
+      if not TryStrToDate(S, FDate, StatDateFormat) then
       begin
         FBot.RequestWhenAnswer:=True;
         FBot.sendMessage('Please enter the date in format: dd-mm-yyyy');
@@ -414,11 +411,11 @@ var
   lParser: TJSONParser;
   AnUpdate: TTelegramUpdateObj;
 begin
-  Msg:=TheRequest.Content;
+  Msg:={$IFNDEF bf30}HttpRequest{$ELSE}TheRequest{$ENDIF}.Content;
   LogMessage(Self, etDebug, 'Recieve the update (Webhook): '+Msg);
   if Msg<>EmptyStr then
   begin
-    lParser := TJSONParser.Create(Msg);
+    lParser := TJSONParser.Create(Msg, DefaultOptions);
     try
       try
         AnUpdate :=
@@ -431,7 +428,7 @@ begin
     if Assigned(AnUpdate) then
     begin
       Bot.DoReceiveUpdate(AnUpdate);
-      TheResponse.ContentType:=BROOK_HTTP_CONTENT_TYPE_APP_JSON;
+      {$IFNDEF bf30}HttpRequest{$ELSE}TheRequest{$ENDIF}.ContentType:=BROOK_HTTP_CONTENT_TYPE_APP_JSON;
       Write(FBot.RequestBody);
     end;
   end;
