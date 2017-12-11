@@ -30,7 +30,7 @@ procedure TMyAction.TlgrmTestCmdHandler(ASender: TObject;
   const ACommand: String; AMessage: TTelegramMessageObj);
 begin
   Bot.RequestWhenAnswer:=True; // You can set to False if you want to see Telegram endpoint reply
-  Bot.sendMessage('This is the response to the /'+ACommand+
+  Bot.sendMessage('This is the response to the '+ACommand+
     ' command which processed by the TlgrmTestCmd procedure');
 end;
 
@@ -45,9 +45,8 @@ begin
   HelpText:=
     'This help text for the bot... See code at https://github.com/Al-Muhandis/brook-telegram '+
     'and  https://github.com/Al-Muhandis/fp-telegram';
-
   { Custom command definition example }
-  Bot.CommandHandlers['TestCmd']:=@TlgrmTestCmdHandler;
+  Bot.CommandHandlers['/testcmd']:=@TlgrmTestCmdHandler;
 
   { Please enter XXXXXX - [your ]user ID (integer value) for availabality of
   admin commands (/stat, /statf /terminate)}

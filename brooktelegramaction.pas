@@ -9,6 +9,7 @@ uses
   fpjson;
 
 type
+
   { TWebhookAction }
 
   TWebhookAction = class(TBrookAction)
@@ -39,7 +40,6 @@ type
     procedure SetStartText(AValue: String);
     procedure SetStatLogger(AValue: TtgStatLog);
     procedure SetToken(AValue: String);
-    procedure SetUpdateMessage(AValue: TTelegramUpdateObj);
     procedure DoCallbackQueryStat(ACallbackQuery: TCallbackQueryObj; SendFile: Boolean = False);
     procedure DoGetStat(ADate: TDate = 0; SendFile: Boolean = false);
     procedure DoStat(const SDate: String; SendFile: Boolean = false);
@@ -48,9 +48,9 @@ type
     procedure LogMessage(ASender: TObject; EventType: TEventType; const Msg: String);
     procedure StatLog(const AMessage: String; UpdateType: TUpdateType);
   protected
+    procedure BotCallbackQuery(ACallback: TCallbackQueryObj); virtual;
+    procedure BotMessageHandler(AMessage: TTelegramMessageObj); virtual;
     function CreateInlineKeyboardStat(SendFile: Boolean): TJSONArray;
-    procedure BotCallbackQuery(ASender: TObject; ACallback: TCallbackQueryObj);
-    procedure BotMessageHandler(ASender: TObject; AMessage: TTelegramMessageObj);
     procedure EditOrSendMessage(const AMessage: String; AParseMode: TParseMode = pmDefault;
       ReplyMarkup: TReplyMarkup = nil; TryEdit: Boolean = False);
     function IsSimpleUser: Boolean;
@@ -69,12 +69,73 @@ type
     property Bot: TTelegramSender read FBot;
   end;
 
+  { TWebhookBot }
+  TWebhookBot = class(TTelegramSender)
+  private
+    FBrookAction: TWebhookAction;
+    procedure SetBrookAction(AValue: TWebhookAction);
+  protected
+    constructor Create(const AToken: String; AWebhookAction: TWebhookAction);
+    procedure DoReceiveMessageUpdate; override;
+    procedure DoReceiveCallbackQuery; override;
+    procedure DebugMessage(const Msg: String); override;
+    procedure InfoMessage(const Msg: String); override;
+    procedure ErrorMessage(const Msg: String); override;
+    property BrookAction: TWebhookAction read FBrookAction write SetBrookAction;
+  end;
+
+
 implementation
 
 uses jsonparser, BrookHttpConsts, strutils, BrookApplication, jsonscanner;
 
 const
   StatDateFormat = 'dd-mm-yyyy';
+
+{ TWebhookBot }
+
+procedure TWebhookBot.SetBrookAction(AValue: TWebhookAction);
+begin
+  if FBrookAction=AValue then Exit;
+  FBrookAction:=AValue;
+end;
+
+constructor TWebhookBot.Create(const AToken: String;
+  AWebhookAction: TWebhookAction);
+begin
+  inherited Create(AToken);
+  FBrookAction:=AWebhookAction;
+end;
+
+procedure TWebhookBot.DoReceiveMessageUpdate;
+begin
+  inherited DoReceiveMessageUpdate;
+  FBrookAction.BotMessageHandler(CurrentUpdate.Message);
+end;
+
+procedure TWebhookBot.DoReceiveCallbackQuery;
+begin
+  inherited DoReceiveCallbackQuery;
+  FBrookAction.BotCallbackQuery(CurrentUpdate.CallbackQuery);
+end;
+
+procedure TWebhookBot.DebugMessage(const Msg: String);
+begin
+  inherited DebugMessage(Msg);
+  FBrookAction.LogMessage(Self, etDebug, Msg);
+end;
+
+procedure TWebhookBot.InfoMessage(const Msg: String);
+begin
+  inherited InfoMessage(Msg);                 
+  FBrookAction.LogMessage(Self, etInfo, Msg);
+end;
+
+procedure TWebhookBot.ErrorMessage(const Msg: String);
+begin
+  inherited ErrorMessage(Msg);
+  FBrookAction.LogMessage(Self, etError, Msg);
+end;
 
   { TWebhookAction }
 
@@ -84,11 +145,6 @@ begin
   FToken:=AValue;
   if Assigned(FBot) then
     FBot.Token:=FToken;
-end;
-
-procedure TWebhookAction.SetUpdateMessage(AValue: TTelegramUpdateObj);
-begin
-
 end;
 
 procedure TWebhookAction.SetStartText(AValue: String);
@@ -189,8 +245,7 @@ begin
     Result:=True;
 end;
 
-procedure TWebhookAction.BotCallbackQuery(ASender: TObject;
-  ACallback: TCallbackQueryObj);
+procedure TWebhookAction.BotCallbackQuery(ACallback: TCallbackQueryObj);
 begin
   if not IsSimpleUser then
   begin
@@ -204,8 +259,7 @@ begin
     FOnCallbackQuery(Self, ACallback);
 end;
 
-procedure TWebhookAction.BotMessageHandler(ASender: TObject;
-  AMessage: TTelegramMessageObj);
+procedure TWebhookAction.BotMessageHandler(AMessage: TTelegramMessageObj);
 begin
   StatLog(AMessage.Text, utMessage);
   if Assigned(FOnUpdateMessage) then
@@ -389,10 +443,7 @@ begin
   FUserPermissions.Duplicates:=dupIgnore;
   FStatLogger:=TtgStatLog.Create(nil);
   FStatLogger.Active:=False;
-  FBot:=TTelegramSender.Create(FToken);
-  FBot.OnLogMessage:=@LogMessage;
-  FBot.OnReceiveMessage:=@BotMessageHandler;
-  FBot.OnReceiveCallbackQuery:=@BotCallbackQuery;
+  FBot:=TWebhookBot.Create(FToken, Self);
   FBot.CommandHandlers['/start']:=@BotStartHandler;
   FBot.CommandHandlers['/help']:=@BotHelpHandler;
 end;
@@ -428,7 +479,7 @@ begin
     if Assigned(AnUpdate) then
     begin
       Bot.DoReceiveUpdate(AnUpdate);
-      {$IFNDEF bf30}HttpRequest{$ELSE}TheRequest{$ENDIF}.ContentType:=BROOK_HTTP_CONTENT_TYPE_APP_JSON;
+      {$IFNDEF bf30}HttpResponse{$ELSE}TheRequest{$ENDIF}.ContentType:=BROOK_HTTP_CONTENT_TYPE_APP_JSON;
       Write(FBot.RequestBody);
     end;
   end;
