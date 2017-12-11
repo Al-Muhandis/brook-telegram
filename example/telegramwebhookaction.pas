@@ -13,7 +13,7 @@ type
 
   TMyAction = class(TWebhookAction)
   protected
-    procedure TlgrmTestCmdHandler(AReceiver: TBrookAction; const ACommand: String;
+    procedure TlgrmTestCmdHandler(ASender: TObject; const ACommand: String;
       AMessage: TTelegramMessageObj);
   public
     constructor Create(ARequest: TBrookRequest; AResponse: TBrookResponse); overload;
@@ -26,12 +26,11 @@ implementation
 uses BrookException, sysutils, brokers;
 
 { Handler for the "TestCmd" telegram command (It is called through /TestCmd in chat with bot) }
-procedure TMyAction.TlgrmTestCmdHandler(AReceiver: TBrookAction;
+procedure TMyAction.TlgrmTestCmdHandler(ASender: TObject;
   const ACommand: String; AMessage: TTelegramMessageObj);
 begin
-  Sender.RequestWhenAnswer:=True; // You can set to False if you want to see Telegram endpoint reply
-  Sender.sendMessage(CurrentChatID,
-    'This is the response to the '+ACommand+
+  Bot.RequestWhenAnswer:=True; // You can set to False if you want to see Telegram endpoint reply
+  Bot.sendMessage('This is the response to the /'+ACommand+
     ' command which processed by the TlgrmTestCmd procedure');
 end;
 
@@ -48,7 +47,7 @@ begin
     'and  https://github.com/Al-Muhandis/fp-telegram';
 
   { Custom command definition example }
-  CommandHandlers['/testcmd']:=@TlgrmTestCmdHandler;
+  Bot.CommandHandlers['TestCmd']:=@TlgrmTestCmdHandler;
 
   { Please enter XXXXXX - [your ]user ID (integer value) for availabality of
   admin commands (/stat, /statf /terminate)}

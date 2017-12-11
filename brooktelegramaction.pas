@@ -9,28 +9,10 @@ uses
   ghashmap, fpjson;
 
 type
-
-  TCommandEvent = procedure (AReceiver: TBrookAction; const ACommand: String;
-    AMessage: TTelegramMessageObj) of object;
-  TCallbackEvent = procedure (AReceiver: TBrookAction; ACallback: TCallbackQueryObj) of object;
-  TMessageEvent = procedure (AReceiver: TBrookAction; AMessage: TTelegramMessageObj) of object;
-
-  { TStringHash }
-
-  TStringHash = class
-    class function hash(s: String; n: Integer): Integer;
-  end;
-
-  generic TStringHashMap<T> = class(specialize THashMap<String,T,TStringHash>) end;
-
-  TCommandHandlersMap = specialize TStringHashMap<TCommandEvent>;
-
   { TWebhookAction }
 
   TWebhookAction = class(TBrookAction)
   private
-    FCurrentChatID: Int64;
-    FCurrentUser: TTelegramUserObj;
     FHelpText: String;
     FLogger: TEventLog;
     FOnCallbackQuery: TCallbackEvent;
@@ -38,12 +20,18 @@ type
     FStartText: String;
     FStatLogger: TtgStatLog;
     FToken: String;
-    FtgSender: TTelegramSender;
-    FUpdateMessage: TTelegramUpdateObj;
+    FBot: TTelegramSender;
     FUserPermissions: TStringList; // namevalue pairs UserID=Character
-    FCommandHandlers: TCommandHandlersMap;
-    function GetCommandHandlers(const Command: String): TCommandEvent;
-    procedure SetCommandHandlers(const Command: String; AValue: TCommandEvent);
+    procedure BotStartHandler(ASender: TObject; const ACommand: String;
+      AMessage: TTelegramMessageObj);
+    procedure BotHelpHandler(ASender: TObject; const ACommand: String;
+      AMessage: TTelegramMessageObj);
+    procedure BotStatHandler(ASender: TObject; const ACommand: String;
+      AMessage: TTelegramMessageObj);
+    procedure BotStatFHandler(ASender: TObject; const ACommand: String;
+      AMessage: TTelegramMessageObj);
+    procedure BotTerminateHandler(ASender: TObject; const ACommand: String;
+      AMessage: TTelegramMessageObj);
     procedure SetHelpText(AValue: String);
     procedure SetLogger(AValue: TEventLog);
     procedure SetOnCallbackQuery(AValue: TCallbackEvent);
@@ -52,7 +40,7 @@ type
     procedure SetStatLogger(AValue: TtgStatLog);
     procedure SetToken(AValue: String);
     procedure SetUpdateMessage(AValue: TTelegramUpdateObj);
-    procedure DoCallbackQueryStat(SendFile: Boolean = False);
+    procedure DoCallbackQueryStat(ACallbackQuery: TCallbackQueryObj; SendFile: Boolean = False);
     procedure DoGetStat(ADate: TDate = 0; SendFile: Boolean = false);
     procedure DoStat(SDate: String = 'today'; SendFile: Boolean = false);
     procedure SendStatLog(ADate: TDate = 0; AReplyMarkup: TReplyMarkup = nil);
@@ -61,8 +49,8 @@ type
     procedure StatLog(const AMessage: String; UpdateType: TUpdateType);
   protected
     function CreateInlineKeyboardStat(SendFile: Boolean): TJSONArray;
-    procedure DoCallbackQuery; virtual;
-    procedure DoMessageHandler; virtual;
+    procedure BotCallbackQuery(ASender: TObject; ACallback: TCallbackQueryObj);
+    procedure BotMessageHandler(ASender: TObject; AMessage: TTelegramMessageObj);
     procedure EditOrSendMessage(const AMessage: String; AParseMode: TParseMode = pmDefault;
       ReplyMarkup: TReplyMarkup = nil; TryEdit: Boolean = False);
     function IsSimpleUser: Boolean;
@@ -73,17 +61,12 @@ type
     property Token: String read FToken write SetToken;
     property OnCallbackQuery: TCallbackEvent read FOnCallbackQuery write SetOnCallbackQuery;
     property OnUpdateMessage: TMessageEvent read FOnUpdateMessage write SetOnUpdateMessage;
-    property UpdateObj: TTelegramUpdateObj read FUpdateMessage write SetUpdateMessage;
     property UserPermissions: TStringList read FUserPermissions write FUserPermissions;
     property StartText: String read FStartText write SetStartText; // Text for /start command reply
     property HelpText: String read FHelpText write SetHelpText;  // Text for /help command reply
     property StatLogger: TtgStatLog read FStatLogger write SetStatLogger;
     property Logger: TEventLog read FLogger write SetLogger;
-    property CurrentUser: TTelegramUserObj read FCurrentUser;
-    property CurrentChatID: Int64 read FCurrentChatID;
-    property Sender: TTelegramSender read FtgSender;
-    property CommandHandlers [const Command: String]: TCommandEvent read GetCommandHandlers
-      write SetCommandHandlers;  // It can create command handlers by assigning their to array elements
+    property Bot: TTelegramSender read FBot;
   end;
 
 implementation
@@ -91,33 +74,21 @@ implementation
 uses jsonparser, BrookHttpConsts, strutils, BrookApplication, jsonscanner;
 
 const
-  UpdateTypeAliases: array[TUpdateType] of PChar = ('message', 'callback_query');
   StatDateFormat = 'dd-mm-yyyy';
 
-{ TStringHash }
-
-class function TStringHash.hash(s: String; n: Integer): Integer;
-var
-  c: Char;
-begin
-  Result := 0;
-  for c in s do
-    Inc(Result,Ord(c));
-  Result := Result mod n;
-end;
-
-procedure TWebhookAction.SetUpdateMessage(AValue: TTelegramUpdateObj);
-begin
-  if FUpdateMessage=AValue then Exit;
-  FUpdateMessage:=AValue;
-end;
+  { TWebhookAction }
 
 procedure TWebhookAction.SetToken(AValue: String);
 begin
   if FToken=AValue then Exit;
   FToken:=AValue;
-  if Assigned(FtgSender) then
-    FtgSender.Token:=FToken;
+  if Assigned(FBot) then
+    FBot.Token:=FToken;
+end;
+
+procedure TWebhookAction.SetUpdateMessage(AValue: TTelegramUpdateObj);
+begin
+
 end;
 
 procedure TWebhookAction.SetStartText(AValue: String);
@@ -144,21 +115,64 @@ begin
   FOnUpdateMessage:=AValue;
 end;
 
+procedure TWebhookAction.BotStartHandler(ASender: TObject;
+  const ACommand: String; AMessage: TTelegramMessageObj);
+begin
+  Bot.RequestWhenAnswer:=True;
+  Bot.sendMessage(FStartText);
+end;
+
+procedure TWebhookAction.BotHelpHandler(ASender: TObject;
+  const ACommand: String; AMessage: TTelegramMessageObj);
+begin
+  Bot.RequestWhenAnswer:=True;
+  Bot.sendMessage(FHelpText);
+end;
+
+procedure TWebhookAction.BotStatHandler(ASender: TObject;
+  const ACommand: String; AMessage: TTelegramMessageObj);
+var
+  S: String;
+begin
+  if IsSimpleUser then
+    Exit;
+  FBot.RequestWhenAnswer:=True;
+  S:=ExtractDelimited(2, AMessage.Text, [' ']);
+  if S<>EmptyStr then
+    DoStat(S)
+  else
+    SendStatInlineKeyboard;
+end;
+
+procedure TWebhookAction.BotStatFHandler(ASender: TObject;
+  const ACommand: String; AMessage: TTelegramMessageObj);
+var
+  S: String;
+begin
+  if IsSimpleUser then
+    Exit;
+  FBot.RequestWhenAnswer:=True;
+  S:=ExtractDelimited(2, AMessage.Text, [' ']);
+  if S<>EmptyStr then
+     DoStat(S, True)
+   else
+     SendStatInlineKeyboard(True);
+end;
+
+procedure TWebhookAction.BotTerminateHandler(ASender: TObject;
+  const ACommand: String; AMessage: TTelegramMessageObj);
+begin
+  if IsSimpleUser then
+    Exit;
+  FBot.RequestWhenAnswer:=True;
+  FBot.sendMessage('Bot app is closed');
+  BrookApp.Terminate;
+end;
+
 procedure TWebhookAction.SetHelpText(AValue: String);
 begin
   if FHelpText=AValue then Exit;
   FHelpText:=AValue;
-end;
-
-function TWebhookAction.GetCommandHandlers(const Command: String): TCommandEvent;
-begin
-  Result:=FCommandHandlers.Items[Command];
-end;
-
-procedure TWebhookAction.SetCommandHandlers(const Command: String;
-  AValue: TCommandEvent);
-begin
-  FCommandHandlers.Items[Command]:=AValue;
 end;
 
 procedure TWebhookAction.SetLogger(AValue: TEventLog);
@@ -169,29 +183,43 @@ end;
 
 function TWebhookAction.IsSimpleUser: Boolean;
 begin
-  if Assigned(FCurrentUser) then
-    Result:=FUserPermissions.Values[IntToStr(FCurrentUser.ID)]=EmptyStr
+  if Assigned(FBot.CurrentUser) then
+    Result:=FUserPermissions.Values[IntToStr(FBot.CurrentUser.ID)]=EmptyStr
   else
     Result:=True;
 end;
 
-procedure TWebhookAction.DoCallbackQuery;
+procedure TWebhookAction.BotCallbackQuery(ASender: TObject;
+  ACallback: TCallbackQueryObj);
 begin
   if not IsSimpleUser then
   begin
-    if AnsiStartsStr('GetStat ', UpdateObj.CallbackQuery.Data) then
-      DoCallbackQueryStat;
-    if AnsiStartsStr('GetStatFile ', UpdateObj.CallbackQuery.Data) then
-      DoCallbackQueryStat(True);
+    if AnsiStartsStr('GetStat ', ACallback.Data) then
+      DoCallbackQueryStat(ACallback);
+    if AnsiStartsStr('GetStatFile ', ACallback.Data) then
+      DoCallbackQueryStat(ACallback, True);
   end;
-  StatLog(UpdateObj.CallbackQuery.Data, utCallbackQuery);
+  StatLog(ACallback.Data, utCallbackQuery);
   if Assigned(FOnCallbackQuery) then
-    FOnCallbackQuery(Self, UpdateObj.CallbackQuery);
+    FOnCallbackQuery(Self, ACallback);
 end;
 
-procedure TWebhookAction.DoCallbackQueryStat(SendFile: Boolean = False);
+procedure TWebhookAction.BotMessageHandler(ASender: TObject;
+  AMessage: TTelegramMessageObj);
+var
+  lCommand, Txt, S: String;
+  lMessageEntityObj: TTelegramMessageEntityObj;
+  H: TCommandEvent;
 begin
-  DoStat(ExtractDelimited(2, UpdateObj.CallbackQuery.Data, [' ']), SendFile);
+  StatLog(Txt, utMessage);
+  if Assigned(FOnUpdateMessage) then
+    FOnUpdateMessage(Self, AMessage);
+end;
+
+procedure TWebhookAction.DoCallbackQueryStat(ACallbackQuery: TCallbackQueryObj;
+  SendFile: Boolean = False);
+begin
+  DoStat(ExtractDelimited(2, ACallbackQuery.Data, [' ']), SendFile);
 end;
 
 procedure TWebhookAction.DoGetStat(ADate: TDate = 0; SendFile: Boolean = false);
@@ -213,7 +241,7 @@ begin
       StatFile:=TStringList.Create;
       try
         AFileName:=StatLogger.GetFileNameFromDate(ADate);
-        FtgSender.RequestWhenAnswer:=True;
+        FBot.RequestWhenAnswer:=True;
         try
           if FileExists(AFileName) then
           begin
@@ -241,69 +269,6 @@ begin
   end;
 end;
 
-procedure TWebhookAction.DoMessageHandler;
-var
-  lCommand, Txt, S: String;
-  lMessageEntityObj: TTelegramMessageEntityObj;
-  H: TCommandEvent;
-begin
-  Txt:=UpdateObj.Message.Text;
-  StatLog(Txt, utMessage);
-  for lMessageEntityObj in UpdateObj.Message.Entities do
-  begin
-    if (lMessageEntityObj.TypeEntity = 'bot_command') and (lMessageEntityObj.Offset = 0) then
-    begin
-      lCommand := Copy(Txt, lMessageEntityObj.Offset, lMessageEntityObj.Length);
-      if FCommandHandlers.contains(lCommand) then
-      begin
-        H:=FCommandHandlers.Items[lCommand];
-        H(Self, lCommand, UpdateObj.Message);
-        Exit;
-      end;
-      FtgSender.RequestWhenAnswer:=True;
-      if lCommand = '/help' then
-      begin
-        FtgSender.sendMessage(FCurrentChatID, FHelpText);
-        Exit;
-      end;
-      if lCommand = '/start' then
-      begin
-        FtgSender.sendMessage(FCurrentChatID, FStartText);
-        Exit;
-      end;
-      if not IsSimpleUser then
-      begin
-        if lCommand = '/stat' then
-        begin
-          S:=RightStr(Txt, Length(Txt)-(lMessageEntityObj.Length-lMessageEntityObj.Offset));
-          if S<>EmptyStr then
-            DoStat(S)
-          else
-            SendStatInlineKeyboard;
-          Exit;
-        end;
-        if lCommand = '/statf' then
-        begin
-          S:=RightStr(Txt, Length(Txt)-(lMessageEntityObj.Length-lMessageEntityObj.Offset));
-          if S<>EmptyStr then
-            DoStat(S, True)
-          else
-            SendStatInlineKeyboard(True);
-          Exit;
-        end;
-        if lCommand = '/terminate' then
-        begin
-          FtgSender.sendMessage(FCurrentChatID, 'Bot app is closed');
-          BrookApp.Terminate;
-          Exit;
-        end;
-      end;
-    end;
-  end;
-  if Assigned(FOnUpdateMessage) then
-    FOnUpdateMessage(Self, UpdateObj.Message);
-end;
-
 procedure TWebhookAction.DoStat(SDate: String = 'today'; SendFile: Boolean = false);
 var
   FDate: TDate;
@@ -319,8 +284,8 @@ begin
     else
       if not TryStrToDate(SDate, FDate, StatDateFormat) then
       begin
-        FtgSender.RequestWhenAnswer:=True;
-        FtgSender.sendMessage(FCurrentChatID, 'Please enter the date in format: dd-mm-yyyy');
+        FBot.RequestWhenAnswer:=True;
+        FBot.sendMessage('Please enter the date in format: dd-mm-yyyy');
         Exit;
       end;
   DoGetStat(FDate, SendFile);
@@ -335,12 +300,12 @@ begin
   AFileName:=StatLogger.GetFileNameFromDate(ADate);
   if FileExists(AFileName) then
   begin
-    FtgSender.RequestWhenAnswer:=False;
-    FtgSender.sendDocumentByFileName(FCurrentChatID, AFileName, 'Statistics for '+DateToStr(ADate));
+    FBot.RequestWhenAnswer:=False;
+    FBot.sendDocumentByFileName(Bot.CurrentChatId, AFileName, 'Statistics for '+DateToStr(ADate));
   end
   else
   begin
-    FtgSender.RequestWhenAnswer:=True;
+    FBot.RequestWhenAnswer:=True;
     EditOrSendMessage('Statistics for this date not found', pmDefault, AReplyMarkup, True);
   end;
 end;
@@ -352,8 +317,8 @@ begin
   ReplyMarkup:=TReplyMarkup.Create;
   try
     ReplyMarkup.InlineKeyBoard:=CreateInlineKeyboardStat(SendFile);
-    FtgSender.RequestWhenAnswer:=True;
-    FtgSender.sendMessage(FCurrentChatID,
+    FBot.RequestWhenAnswer:=True;
+    FBot.sendMessage(
       'Select statistics by pressing the button. In addition, the available commands:'+
       LineEnding+'/stat <i>day</i> - the last records for a specified <i>date</i>, '+
       '/statf <i>date</i> - statistics file for the <i>date</i>,'+LineEnding+
@@ -379,9 +344,9 @@ begin
   if Length(EscMsg)>150 then
     SetLength(EscMsg, 150);
   if IsSimpleUser then
-    if Assigned(FCurrentUser)then
-      StatLogger.Log(['@'+FCurrentUser.Username, FCurrentUser.First_name, FCurrentUser.Last_name,
-        FCurrentUser.Language_code, UpdateTypeAliases[UpdateType], '"'+EscMsg+'"'])
+    if Assigned(Bot.CurrentUser)then
+      StatLogger.Log(['@'+Bot.CurrentUser.Username, Bot.CurrentUser.First_name, Bot.CurrentUser.Last_name,
+        Bot.CurrentUser.Language_code, UpdateTypeAliases[UpdateType], '"'+EscMsg+'"'])
     else
       StatLogger.Log(['', '', '', '', UpdateTypeAliases[UpdateType], '"'+EscMsg+'"'])
 end;
@@ -394,15 +359,13 @@ begin
   if TryEdit then
   begin
     TryEdit:=False;
-    if Assigned(UpdateObj.CallbackQuery) then
-      if Assigned(UpdateObj.CallbackQuery.Message) then
-        TryEdit:=True;
+    if Bot.CurrentUpdate.UpdateType=utCallbackQuery then
+      TryEdit:=True;
   end;
   if not TryEdit then
-    Sender.sendMessage(CurrentChatID, AMessage, AParseMode, True, ReplyMarkup)
+    Bot.sendMessage(AMessage, AParseMode, True, ReplyMarkup)
   else
-    Sender.editMessageText(AMessage, CurrentChatID, UpdateObj.CallbackQuery.Message.MessageId,
-      AParseMode, False, '', ReplyMarkup);
+    Bot.editMessageText(AMessage, AParseMode, False, '', ReplyMarkup);
 end;
 
 function TWebhookAction.CreateInlineKeyboardStat(SendFile: Boolean): TJSONArray;
@@ -424,25 +387,24 @@ end;
 constructor TWebhookAction.Create;
 begin
   inherited Create;
-  FCurrentUser:=nil;
   FUserPermissions:=TStringList.Create;
   FUserPermissions.Sorted:=True;
   FUserPermissions.Duplicates:=dupIgnore;
   FStatLogger:=TtgStatLog.Create(nil);
   FStatLogger.Active:=False;
-  FtgSender:=TTelegramSender.Create(FToken);
-  FtgSender.OnLogMessage:=@LogMessage;
-  FCommandHandlers:=TCommandHandlersMap.create;
+  FBot:=TTelegramSender.Create(FToken);
+  FBot.OnLogMessage:=@LogMessage;
+  FBot.OnReceiveMessage:=@BotMessageHandler;
+  FBot.OnReceiveCallbackQuery:=@BotCallbackQuery;
+  FBot.CommandHandlers['/start']:=@BotStartHandler;
+  FBot.CommandHandlers['/help']:=@BotHelpHandler;
 end;
 
 destructor TWebhookAction.Destroy;
 begin
-  FCommandHandlers.Free;
-  FtgSender.Free;
+  FBot.Free;
   FStatLogger.Free;
   FUserPermissions.Free;
-  if Assigned(UpdateObj) then
-    UpdateObj.Free;
   inherited Destroy;
 end;
 
@@ -450,6 +412,7 @@ procedure TWebhookAction.Post;
 var
   Msg: String;
   lParser: TJSONParser;
+  AnUpdate: TTelegramUpdateObj;
 begin
   Msg:=TheRequest.Content;
   LogMessage(Self, etDebug, 'Recieve the update (Webhook): '+Msg);
@@ -458,29 +421,18 @@ begin
     lParser := TJSONParser.Create(Msg);
     try
       try
-        UpdateObj :=
+        AnUpdate :=
           TTelegramUpdateObj.CreateFromJSONObject(lParser.Parse as TJSONObject) as TTelegramUpdateObj;
       except
       end;
     finally
       lParser.Free;
     end;
-    if Assigned(UpdateObj) then
+    if Assigned(AnUpdate) then
     begin
-      if Assigned(UpdateObj.Message) then
-      begin
-        FCurrentChatID:=UpdateObj.Message.ChatId;
-        FCurrentUser:=UpdateObj.Message.From;
-        DoMessageHandler;
-      end;
-      if Assigned(UpdateObj.CallbackQuery) then
-      begin
-        FCurrentChatID:=UpdateObj.CallbackQuery.Message.ChatId;
-        FCurrentUser:=UpdateObj.CallbackQuery.From;
-        DoCallbackQuery;
-      end;
+      Bot.DoReceiveUpdate(AnUpdate);
       TheResponse.ContentType:=BROOK_HTTP_CONTENT_TYPE_APP_JSON;
-      Write(FtgSender.RequestBody);
+      Write(FBot.RequestBody);
     end;
   end;
 end;
