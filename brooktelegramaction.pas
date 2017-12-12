@@ -75,13 +75,14 @@ type
     FBrookAction: TWebhookAction;
     procedure SetBrookAction(AValue: TWebhookAction);
   protected
-    constructor Create(const AToken: String; AWebhookAction: TWebhookAction);
     procedure DoReceiveMessageUpdate; override;
     procedure DoReceiveCallbackQuery; override;
     procedure DebugMessage(const Msg: String); override;
     procedure InfoMessage(const Msg: String); override;
     procedure ErrorMessage(const Msg: String); override;
     property BrookAction: TWebhookAction read FBrookAction write SetBrookAction;
+  public
+    constructor Create(const AToken: String; AWebhookAction: TWebhookAction);
   end;
 
 
@@ -281,7 +282,7 @@ var
   ReplyMarkup: TReplyMarkup;
 begin
   if IsSimpleUser then
-  Exit;
+    Exit;
   ReplyMarkup:=TReplyMarkup.Create;
   try
     ReplyMarkup.InlineKeyBoard:=CreateInlineKeyboardStat(SendFile);
@@ -407,16 +408,10 @@ it is desirable not to create a new message and edit the message from which the 
 procedure TWebhookAction.EditOrSendMessage(const AMessage: String;
   AParseMode: TParseMode; ReplyMarkup: TReplyMarkup; TryEdit: Boolean);
 begin
-  if TryEdit then
-  begin
-    TryEdit:=False;
-    if Bot.CurrentUpdate.UpdateType=utCallbackQuery then
-      TryEdit:=True;
-  end;
   if not TryEdit then
     Bot.sendMessage(AMessage, AParseMode, True, ReplyMarkup)
   else
-    Bot.editMessageText(AMessage, AParseMode, False, '', ReplyMarkup);
+    Bot.editMessageText(AMessage, AParseMode, True, ReplyMarkup);
 end;
 
 function TWebhookAction.CreateInlineKeyboardStat(SendFile: Boolean): TJSONArray;
@@ -446,6 +441,9 @@ begin
   FBot:=TWebhookBot.Create(FToken, Self);
   FBot.CommandHandlers['/start']:=@BotStartHandler;
   FBot.CommandHandlers['/help']:=@BotHelpHandler;
+  FBot.CommandHandlers['/stat']:=@BotStatHandler;
+  FBot.CommandHandlers['/statf']:=@BotStatFHandler;
+
 end;
 
 destructor TWebhookAction.Destroy;
@@ -479,7 +477,7 @@ begin
     if Assigned(AnUpdate) then
     begin
       Bot.DoReceiveUpdate(AnUpdate);
-      {$IFNDEF bf30}HttpResponse{$ELSE}TheRequest{$ENDIF}.ContentType:=BROOK_HTTP_CONTENT_TYPE_APP_JSON;
+      {$IFNDEF bf30}HttpResponse{$ELSE}TheResponse{$ENDIF}.ContentType:=BROOK_HTTP_CONTENT_TYPE_APP_JSON;
       Write(FBot.RequestBody);
     end;
   end;
