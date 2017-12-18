@@ -1,0 +1,59 @@
+msgid ""
+msgstr "Content-Type: text/plain; charset=UTF-8"
+
+#: brooktelegramaction.str_btapisclsd
+msgid "Bot app is closed"
+msgstr ""
+
+#: brooktelegramaction.str_entrdtinfrmt
+msgid "Please enter the date in format: dd-mm-yyyy"
+msgstr ""
+
+#: brooktelegramaction.str_errfldtldsttstcsfl
+msgid "Error: failed to load statistics file"
+msgstr ""
+
+#: brooktelegramaction.str_feedbacktext
+msgid "Send us a wish, recommendation or bug report"
+msgstr ""
+
+#: brooktelegramaction.str_feedbackthanks
+msgid "Thanks! %s Your message will be considered!"
+msgstr ""
+
+#: brooktelegramaction.str_slctsttstcs_line1
+msgid "Select statistics by pressing the button. In addition, the available commands:"
+msgstr ""
+
+#: brooktelegramaction.str_slctsttstcs_line2
+msgid "/stat <i>day</i> - the last records for a specified <i>date</i>, "
+msgstr ""
+
+#: brooktelegramaction.str_slctsttstcs_line3
+msgid "/statf <i>date</i> - statistics file for the <i>date</i>,"
+msgstr ""
+
+#: brooktelegramaction.str_slctsttstcs_line4
+msgid "where <i>date</i> is <i>today</i> or <i>yesterday</i> or in format <i>dd-mm-yyyy</i>"
+msgstr ""
+
+#: brooktelegramaction.str_sttstcsfr
+msgid "Statistics for "
+msgstr ""
+
+#: brooktelegramaction.str_sttstcsntfnd
+msgid "Statistics for this date not found"
+msgstr ""
+
+#: brooktelegramaction.str_today
+msgid "Today"
+msgstr ""
+
+#: brooktelegramaction.str_txtrplyisscschngd
+msgid "Text reply for command is succesfully changed!"
+msgstr ""
+
+#: brooktelegramaction.str_yesterday
+msgid "Yesterday"
+msgstr ""
+

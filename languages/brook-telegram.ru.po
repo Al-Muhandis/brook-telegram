@@ -1,0 +1,58 @@
+msgid ""
+msgstr "Content-Type: text/plain; charset=UTF-8"
+
+#: brooktelegramaction.str_btapisclsd
+msgid "Bot app is closed"
+msgstr "Работа бота завершена"
+
+#: brooktelegramaction.str_entrdtinfrmt
+msgid "Please enter the date in format: dd-mm-yyyy"
+msgstr "Пожалуйста, вводите дату в формате: dd-mm-yyyy"
+
+#: brooktelegramaction.str_errfldtldsttstcsfl
+msgid "Error: failed to load statistics file"
+msgstr "Ошибка: невозможно загрузить файл статистики"
+
+#: brooktelegramaction.str_feedbacktext
+msgid "Send us a wish, recommendation or bug report"
+msgstr "Отправить нам пожелания, рекомендации или сообщение об ошибке"
+
+#: brooktelegramaction.str_feedbackthanks
+msgid "Thanks! %s Your message will be considered!"
+msgstr "Спасибо! %s ваше сообщение будет рассмотрено!"
+
+#: brooktelegramaction.str_slctsttstcs_line1
+msgid "Select statistics by pressing the button. In addition, the available commands:"
+msgstr "Выберите статистику, нажав на кнопку. Кроме того, доступные следующие команды:"
+
+#: brooktelegramaction.str_slctsttstcs_line2
+msgid "/stat <i>day</i> - the last records for a specified <i>date</i>, "
+msgstr "/stat <i>day</i> - последние записи за указанную дату <i>date</i>, "
+
+#: brooktelegramaction.str_slctsttstcs_line3
+msgid "/statf <i>date</i> - statistics file for the <i>date</i>,"
+msgstr "/statf <i>date</i> - файл статистики за дату <i>date</i>,"
+
+#: brooktelegramaction.str_slctsttstcs_line4
+msgid "where <i>date</i> is <i>today</i> or <i>yesterday</i> or in format <i>dd-mm-yyyy</i>"
+msgstr "где <i>date</i> это <i>today</i> или <i>yesterday</i> или в формате <i>dd-mm-yyyy</i>"
+
+#: brooktelegramaction.str_sttstcsfr
+msgid "Statistics for "
+msgstr "Статистика за"
+
+#: brooktelegramaction.str_sttstcsntfnd
+msgid "Statistics for this date not found"
+msgstr "Статистика за эту дату не найдена"
+
+#: brooktelegramaction.str_today
+msgid "Today"
+msgstr "Сегодня"
+
+#: brooktelegramaction.str_txtrplyisscschngd
+msgid "Text reply for command is succesfully changed!"
+msgstr "Текст для команды успешно изменен"
+
+#: brooktelegramaction.str_yesterday
+msgid "Yesterday"
+msgstr "Вчера"
