@@ -14,6 +14,8 @@ type
 
   TWebhookBot = class;
 
+  TRateEvent = procedure (var RateText: String; ReplyMarkup: TReplyMarkup) of object;
+
   { TWebhookAction }
 
   TWebhookAction = class(TBrookAction)
@@ -81,14 +83,19 @@ type
     FBrookAction: TWebhookAction;
     FFeedbackText: String;
     FFeedbackThanks: String;
+    FOnRate: TRateEvent;
     FUserPermissions: TStringList;
     function GetUserStatus(ID: Int64): TUserStatus;
     procedure SetBrookAction(AValue: TWebhookAction);
+    procedure SetOnRate(AValue: TRateEvent);
     procedure SetUserStatus(ID: Int64; AValue: TUserStatus);
     procedure TlgrmFeedback(ASender: TObject; const ACommand: String;
       AMessage: TTelegramMessageObj);
+    procedure TlgrmRate(ASender: TObject; const ACommand: String;
+      AMessage: TTelegramMessageObj);
     procedure LangTranslate(const ALang: String);
   protected
+    function CreateInlineKeyboardRate: TJSONArray;
     procedure DoReceiveMessageUpdate(AMessage: TTelegramMessageObj); override;
     procedure DoReceiveCallbackQuery(ACallback: TCallbackQueryObj); override;
     procedure DebugMessage(const Msg: String); override;
@@ -105,12 +112,13 @@ type
     property FeedbackText: String read FFeedbackText write FFeedbackText;
     property FeedbackThanks: String read FFeedbackThanks write FFeedbackThanks;
     property UserStatus [ID: Int64]: TUserStatus read GetUserStatus write SetUserStatus;
+    property OnRate: TRateEvent read FOnRate write SetOnRate;
   end;
 
 
 implementation
-
-uses jsonparser, BrookHttpConsts, strutils, BrookApplication, jsonscanner, Translations;
+{ Please define ni18n (No i18n) for excluding translate unit from uses and exclude i18n support }
+uses jsonparser, BrookHttpConsts, strutils, BrookApplication, jsonscanner{$IFNDEF ni18n},Translations{$ENDIF};
 
 // Please use i18n for localization *** Пожалуйста, используйте i18n для локализации
 resourcestring
@@ -128,6 +136,8 @@ resourcestring
   str_SlctSttstcs_line4='where <i>date</i> is <i>today</i> or <i>yesterday</i> or in format <i>dd-mm-yyyy</i>';
   str_Today='Today';
   str_Yesterday='Yesterday';
+  str_Rate='Rate';
+  str_RateText='Please leave feedback on "Storebot" if you like our bot!';
 
 
 const
@@ -141,10 +151,12 @@ const
   cmd_Feedback = '/feedback';
   cmd_SetStart = '/setstart';
   cmd_SetHelp = '/sethelp';
+  cmd_Rate = '/rate';
   s_Today = 'today';
   s_Yesterday = 'yesterday';
   s_GetStat='GetStat';
   s_File='File';
+  s_StoreBotRate='https://telegram.me/storebot?start=';
 
 function AnsiCharToUserStatus(const StatusChar: String): TUserStatus;
 var
@@ -169,6 +181,12 @@ procedure TWebhookBot.SetBrookAction(AValue: TWebhookAction);
 begin
   if FBrookAction=AValue then Exit;
   FBrookAction:=AValue;
+end;
+
+procedure TWebhookBot.SetOnRate(AValue: TRateEvent);
+begin
+  if FOnRate=AValue then Exit;
+  FOnRate:=AValue;
 end;
 
 function TWebhookBot.GetUserStatus(ID: Int64): TUserStatus;
@@ -205,16 +223,50 @@ begin
   end;
 end;
 
-procedure TWebhookBot.LangTranslate(const ALang: String);
+procedure TWebhookBot.TlgrmRate(ASender: TObject; const ACommand: String;
+  AMessage: TTelegramMessageObj);
 var
-  L, F: String;
+  ReplyMarkup: TReplyMarkup;
+  ATxt: String;
 begin
+  ReplyMarkup:=TReplyMarkup.Create;
+  try
+    { You must assign BotUsername before Create inline KeyboardRate for forming rate url for your bot
+      except if FUsername already assinged (getMe or callbackquery before is called, for example) }
+    ReplyMarkup.InlineKeyBoard:=CreateInlineKeyboardRate;
+    RequestWhenAnswer:=True;
+    ATxt:=str_RateText;
+    if Assigned(FOnRate) then
+      FOnRate(ATxt, ReplyMarkup);
+    sendMessage(ATxt, pmMarkdown, True, ReplyMarkup);
+  finally
+    ReplyMarkup.Free;
+  end;
+end;
+{ Please define ni18n (No i18n) for excluding translate unit from uses and exclude i18n support }
+procedure TWebhookBot.LangTranslate(const ALang: String);{$IFNDEF ni18n}
+var
+  L, F: String;  {$ENDIF}
+begin{$IFNDEF ni18n}
   if Length(ALang)>2 then
     L:=LeftStr(ALang, 2)
   else
     L:=ALang;
   F:='languages'+PathDelim+ApplicationName+'.%s.po';
-  TranslateResourceStrings(F, L, '');
+  TranslateResourceStrings(F, L, '');{$ENDIF}
+end;
+
+function TWebhookBot.CreateInlineKeyboardRate: TJSONArray;
+var
+  btns: TInlineKeyboardButtons;
+  btn: TInlineKeyboardButton;
+begin
+  btns:=TInlineKeyboardButtons.Create;
+  btn:=TInlineKeyboardButton.Create(str_Rate);
+  btn.url:=s_StoreBotRate+BotUsername;
+  btns.Add(btn);
+  Result:=TJSONArray.Create;
+  Result.Add(btns);
 end;
 
 constructor TWebhookBot.Create(const AToken: String;
@@ -228,6 +280,7 @@ begin
   FFeedbackThanks:=str_FeedbackThanks;
   FFeedbackText:=str_FeedbackText;
   CommandHandlers[cmd_Feedback]:=@TlgrmFeedback;
+  CommandHandlers[cmd_Rate]:=@TlgrmRate;
 end;
 
 destructor TWebhookBot.Destroy;
