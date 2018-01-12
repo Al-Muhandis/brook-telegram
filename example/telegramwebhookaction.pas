@@ -48,9 +48,9 @@ begin
   { Custom command definition example }
   Bot.CommandHandlers['/testcmd']:=@TlgrmTestCmdHandler;
 
-  { Please enter XXXXXX - [your ]user ID (integer value) for availabality of
+  { Please enter 1234567890 - [your ]user ID (integer value) for availabality of
   admin commands (/stat, /statf /terminate)}
-  UserPermissions.Add('XXXXXX=a');  // You can comment out this if you do not need this functionality
+  Bot.UserStatus[1234567890]:=usAdmin;  // You can comment out this if you do not need this functionality
   { You can do not create this log. If its value is nil,
   then the logging just will not be maintained }
   StatLogger.Paused:=False; // run statistics log

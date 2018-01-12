@@ -40,6 +40,7 @@ type
       AMessage: TTelegramMessageObj);
     procedure BotTerminateHandler(ASender: TObject; const ACommand: String;
       AMessage: TTelegramMessageObj);
+    procedure SetBot(AValue: TWebhookBot);
     procedure SetHelpText(AValue: String);
     procedure SetLogger(AValue: TEventLog);
     procedure SetOnCallbackQuery(AValue: TCallbackEvent);
@@ -74,7 +75,7 @@ type
     property HelpText: String read FHelpText write SetHelpText;  // Text for /help command reply
     property StatLogger: TtgStatLog read FStatLogger write SetStatLogger;
     property Logger: TEventLog read FLogger write SetLogger;
-    property Bot: TWebhookBot read FBot;
+    property Bot: TWebhookBot read FBot write SetBot;
   end;
 
   { TWebhookBot }
@@ -118,7 +119,8 @@ type
 
 implementation
 { Please define ni18n (No i18n) for excluding translate unit from uses and exclude i18n support }
-uses jsonparser, BrookHttpConsts, strutils, BrookApplication, jsonscanner{$IFNDEF ni18n},Translations{$ENDIF};
+uses jsonparser, BrookHttpConsts, strutils, BrookApplication, jsonscanner{$IFNDEF ni18n},
+  Translations{$ENDIF};
 
 // Please use i18n for localization *** Пожалуйста, используйте i18n для локализации
 resourcestring
@@ -452,6 +454,11 @@ begin
   FBot.RequestWhenAnswer:=True;
   FBot.sendMessage(str_BtApIsClsd);
   BrookApp.Terminate;
+end;
+
+procedure TWebhookAction.SetBot(AValue: TWebhookBot);
+begin
+// todo Does It need a code here? Can it be so?
 end;
 
 procedure TWebhookAction.SetHelpText(AValue: String);
