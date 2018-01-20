@@ -13,8 +13,8 @@ type
 
   TMyAction = class(TWebhookAction)
   protected
-    procedure TlgrmTestCmdHandler(ASender: TObject; const ACommand: String;
-      AMessage: TTelegramMessageObj);
+    procedure TlgrmTestCmdHandler({%H-}ASender: TObject; const ACommand: String;
+      {%H-}AMessage: TTelegramMessageObj);
   public
     constructor Create(ARequest: TBrookRequest; AResponse: TBrookResponse); overload;
       override;

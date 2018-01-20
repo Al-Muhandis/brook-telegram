@@ -28,19 +28,19 @@ type
     FStatLogger: TtgStatLog;
     FToken: String;
     FBot: TWebhookBot;
-    procedure BotStartHandler(ASender: TObject; const ACommand: String;
+    procedure BotStartHandler({%H-}ASender: TObject; const {%H-}ACommand: String;
+      {%H-}AMessage: TTelegramMessageObj);
+    procedure BotHelpHandler({%H-}ASender: TObject; const {%H-}ACommand: String;
+      {%H-}AMessage: TTelegramMessageObj);
+    procedure BotSetCommandReply({%H-}ASender: TObject; const ACommand: String;
       AMessage: TTelegramMessageObj);
-    procedure BotHelpHandler(ASender: TObject; const ACommand: String;
+    procedure BotStatHandler({%H-}ASender: TObject; const {%H-}ACommand: String;
       AMessage: TTelegramMessageObj);
-    procedure BotSetCommandReply(ASender: TObject; const ACommand: String;
+    procedure BotStatFHandler({%H-}ASender: TObject; const {%H-}ACommand: String;
       AMessage: TTelegramMessageObj);
-    procedure BotStatHandler(ASender: TObject; const ACommand: String;
-      AMessage: TTelegramMessageObj);
-    procedure BotStatFHandler(ASender: TObject; const ACommand: String;
-      AMessage: TTelegramMessageObj);
-    procedure BotTerminateHandler(ASender: TObject; const ACommand: String;
-      AMessage: TTelegramMessageObj);
-    procedure SetBot(AValue: TWebhookBot);
+    procedure BotTerminateHandler({%H-}ASender: TObject; const {%H-}ACommand: String;
+      {%H-}AMessage: TTelegramMessageObj);
+    procedure SetBot({%H-}AValue: TWebhookBot);
     procedure SetHelpText(AValue: String);
     procedure SetLogger(AValue: TEventLog);
     procedure SetOnCallbackQuery(AValue: TCallbackEvent);
@@ -53,7 +53,7 @@ type
     procedure DoStat(const SDate: String; SendFile: Boolean = false);
     procedure SendStatLog(ADate: TDate = 0; AReplyMarkup: TReplyMarkup = nil);
     procedure SendStatInlineKeyboard(SendFile: Boolean = false);
-    procedure LogMessage(ASender: TObject; EventType: TEventType; const Msg: String);
+    procedure LogMessage({%H-}ASender: TObject; EventType: TEventType; const Msg: String);
     procedure StatLog(const AMessage: String; UpdateType: TUpdateType);
   protected
     procedure BotCallbackQuery(ACallback: TCallbackQueryObj); virtual;
@@ -90,11 +90,11 @@ type
     procedure SetBrookAction(AValue: TWebhookAction);
     procedure SetOnRate(AValue: TRateEvent);
     procedure SetUserStatus(ID: Int64; AValue: TUserStatus);
-    procedure TlgrmFeedback(ASender: TObject; const ACommand: String;
-      AMessage: TTelegramMessageObj);
-    procedure TlgrmRate(ASender: TObject; const ACommand: String;
-      AMessage: TTelegramMessageObj);
-    procedure LangTranslate(const ALang: String);
+    procedure TlgrmFeedback({%H-}ASender: TObject; const {%H-}ACommand: String;
+      {%H-}AMessage: TTelegramMessageObj);
+    procedure TlgrmRate({%H-}ASender: TObject; const {%H-}ACommand: String;
+      {%H-}AMessage: TTelegramMessageObj);
+    procedure LangTranslate(const {%H-}ALang: String);
   protected
     function CreateInlineKeyboardRate: TJSONArray;
     procedure DoReceiveMessageUpdate(AMessage: TTelegramMessageObj); override;
