@@ -116,6 +116,7 @@ type
     property OnRate: TRateEvent read FOnRate write SetOnRate;
   end;
 
+function ExtractArgPart(const ASource, ACommand: String): String;
 
 implementation
 { Please define ni18n (No i18n) for excluding translate unit from uses and exclude i18n support }
@@ -175,6 +176,11 @@ begin
   else
     Result:=usDefault;
   end;
+end;
+
+function ExtractArgPart(const ASource, ACommand: String): String;
+begin
+  Result:=Trim(RightStr(ASource, Length(ASource)-Length(ACommand)));
 end;
 
 { TWebhookBot }
@@ -407,7 +413,7 @@ var
 begin
   if IsSimpleUser then
     Exit;
-  S:=Trim(RightStr(AMessage.Text, Length(AMessage.Text)-Length(ACommand)));
+  S:=ExtractArgPart(AMessage.Text, ACommand);
   if ACommand=cmd_SetStart then
     StartText:=S
   else
