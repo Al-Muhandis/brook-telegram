@@ -34,10 +34,6 @@ type
       {%H-}AMessage: TTelegramMessageObj);
     procedure BotSetCommandReply({%H-}ASender: TObject; const ACommand: String;
       AMessage: TTelegramMessageObj);
-    procedure BotStatHandler({%H-}ASender: TObject; const {%H-}ACommand: String;
-      AMessage: TTelegramMessageObj);
-    procedure BotStatFHandler({%H-}ASender: TObject; const {%H-}ACommand: String;
-      AMessage: TTelegramMessageObj);
     procedure BotTerminateHandler({%H-}ASender: TObject; const {%H-}ACommand: String;
       {%H-}AMessage: TTelegramMessageObj);
     procedure SetBot({%H-}AValue: TWebhookBot);
@@ -48,17 +44,11 @@ type
     procedure SetStartText(AValue: String);
     procedure SetStatLogger(AValue: TtgStatLog);
     procedure SetToken(AValue: String);
-    procedure DoCallbackQueryStat(ACallbackQuery: TCallbackQueryObj; SendFile: Boolean = False);
-    procedure DoGetStat(ADate: TDate = 0; SendFile: Boolean = false);
-    procedure DoStat(const SDate: String; SendFile: Boolean = false);
     procedure SendStatLog(ADate: TDate = 0; AReplyMarkup: TReplyMarkup = nil);
-    procedure SendStatInlineKeyboard(SendFile: Boolean = false);
     procedure LogMessage({%H-}ASender: TObject; EventType: TEventType; const Msg: String);
-    procedure StatLog(const AMessage: String; UpdateType: TUpdateType);
   protected
     procedure BotCallbackQuery(ACallback: TCallbackQueryObj); virtual;
     procedure BotMessageHandler(AMessage: TTelegramMessageObj); virtual;
-    function CreateInlineKeyboardStat(SendFile: Boolean): TJSONArray;
     procedure EditOrSendMessage(const AMessage: String; AParseMode: TParseMode = pmDefault;
       ReplyMarkup: TReplyMarkup = nil; TryEdit: Boolean = False);
     function IsSimpleUser: Boolean;
@@ -86,6 +76,9 @@ type
     FFeedbackThanks: String;
     FOnRate: TRateEvent;
     FUserPermissions: TStringList;
+    procedure DoCallbackQueryStat(ACallbackQuery: TCallbackQueryObj; SendFile: Boolean = False);
+    procedure DoGetStat(ADate: TDate = 0; SendFile: Boolean = false);
+    procedure DoStat(const SDate: String; SendFile: Boolean = false);
     function GetUserStatus(ID: Int64): TUserStatus;
     procedure SetBrookAction(AValue: TWebhookAction);
     procedure SetOnRate(AValue: TRateEvent);
@@ -94,11 +87,22 @@ type
       {%H-}AMessage: TTelegramMessageObj);
     procedure TlgrmRate({%H-}ASender: TObject; const {%H-}ACommand: String;
       {%H-}AMessage: TTelegramMessageObj);
+    procedure TlgrmStatHandler({%H-}ASender: TObject;
+      const {%H-}ACommand: String; AMessage: TTelegramMessageObj);
+    procedure TlgrmStatFHandler({%H-}ASender: TObject;
+      const {%H-}ACommand: String; AMessage: TTelegramMessageObj);
     procedure LangTranslate(const {%H-}ALang: String);
+    procedure SendStatInlineKeyboard(SendFile: Boolean = False);
+    procedure StatLog(const AMessage: String; UpdateType: TUpdateType);
   protected
     function CreateInlineKeyboardRate: TJSONArray;
+    function CreateInlineKeyboardStat(SendFile: Boolean): TJSONArray;
     procedure DoReceiveMessageUpdate(AMessage: TTelegramMessageObj); override;
     procedure DoReceiveCallbackQuery(ACallback: TCallbackQueryObj); override;
+    procedure DoReceiveChannelPost(AChannelPost: TTelegramMessageObj); override;
+    procedure DoReceiveChosenInlineResult(
+      AChosenInlineResult: TTelegramChosenInlineResultObj); override;
+    procedure DoReceiveInlineQuery(AnInlineQuery: TTelegramInlineQueryObj); override;
     procedure DebugMessage(const Msg: String); override;
     procedure InfoMessage(const Msg: String); override;
     procedure ErrorMessage(const Msg: String); override;
@@ -197,6 +201,82 @@ begin
   FOnRate:=AValue;
 end;
 
+procedure TWebhookBot.DoCallbackQueryStat(ACallbackQuery: TCallbackQueryObj;
+  SendFile: Boolean);
+begin
+  DoStat(ExtractDelimited(2, ACallbackQuery.Data, [' ']), SendFile);
+end;
+
+procedure TWebhookBot.DoGetStat(ADate: TDate = 0; SendFile: Boolean = false);
+var
+  StatFile: TStringList;
+  Msg: String;
+  AFileName: String;
+  i: Integer;
+  ReplyMarkup: TReplyMarkup;
+begin
+  if CurrentIsSimpleUser then
+    Exit;
+  ReplyMarkup:=TReplyMarkup.Create;
+  try
+    ReplyMarkup.InlineKeyBoard:=CreateInlineKeyboardStat(SendFile);
+    if SendFile then
+      FBrookAction.SendStatLog(ADate, ReplyMarkup)
+    else begin
+      StatFile:=TStringList.Create;
+      try
+        AFileName:=FBrookAction.StatLogger.GetFileNameFromDate(ADate);
+        RequestWhenAnswer:=True;
+        try
+          if FileExists(AFileName) then
+          begin
+            StatFile.LoadFromFile(AFileName);
+            Msg:='';
+            for i:=StatFile.Count-1 downto StatFile.Count-20 do
+            begin
+              if i<0 then
+                Break;
+              Msg+=StatFile[i]+LineEnding;
+            end;
+            editMessageText(Msg, pmDefault, True, ReplyMarkup);
+          end
+          else
+            editMessageText(str_SttstcsNtFnd, pmDefault, True, ReplyMarkup);
+        except
+          editMessageText(str_ErrFldTLdSttstcsFl, pmDefault, True, ReplyMarkup);
+        end;
+      finally
+        StatFile.Free;
+      end;
+    end;
+  finally
+    ReplyMarkup.Free;
+  end;
+end;
+
+procedure TWebhookBot.DoStat(const SDate: String; SendFile: Boolean = false);
+var
+  FDate: TDate;
+  S: String;
+begin
+  if not Assigned(FBrookAction.StatLogger) then
+    Exit;
+  S:=Trim(SDate);
+  if (S=s_Today) or (S=EmptyStr) then
+    FDate:=Date
+  else
+    if S=s_Yesterday then
+      FDate:=Date-1
+    else
+      if not TryStrToDate(S, FDate, StatDateFormat) then
+      begin
+        RequestWhenAnswer:=True;
+        sendMessage(str_EntrDtInFrmt);
+        Exit;
+      end;
+  DoGetStat(FDate, SendFile);
+end;
+
 function TWebhookBot.GetUserStatus(ID: Int64): TUserStatus;
 begin
   Result:=AnsiCharToUserStatus(FUserPermissions.Values[IntToStr(ID)]);
@@ -251,6 +331,37 @@ begin
     ReplyMarkup.Free;
   end;
 end;
+
+procedure TWebhookBot.TlgrmStatHandler(ASender: TObject;
+  const ACommand: String; AMessage: TTelegramMessageObj);
+var
+  S: String;
+begin
+  if CurrentIsSimpleUser then
+    Exit;
+  RequestWhenAnswer:=True;
+  S:=ExtractDelimited(2, AMessage.Text, [' ']);
+  if S<>EmptyStr then
+    DoStat(S)
+  else
+    SendStatInlineKeyboard();
+end;
+
+procedure TWebhookBot.TlgrmStatFHandler(ASender: TObject;
+  const ACommand: String; AMessage: TTelegramMessageObj);
+var
+  S: String;
+begin
+  if CurrentIsSimpleUser then
+    Exit;
+  RequestWhenAnswer:=True;
+  S:=ExtractDelimited(2, AMessage.Text, [' ']);
+  if S<>EmptyStr then
+     DoStat(S, True)
+  else
+    SendStatInlineKeyboard(True);
+end;
+
 { Please define ni18n (No i18n) for excluding translate unit from uses and exclude i18n support }
 procedure TWebhookBot.LangTranslate(const ALang: String);{$IFNDEF ni18n}
 var
@@ -264,6 +375,37 @@ begin{$IFNDEF ni18n}
   TranslateResourceStrings(F, L, '');{$ENDIF}
 end;
 
+procedure TWebhookBot.SendStatInlineKeyboard(SendFile: Boolean);
+var
+  ReplyMarkup: TReplyMarkup;
+begin
+  ReplyMarkup:=TReplyMarkup.Create;
+  try
+    ReplyMarkup.InlineKeyBoard:=CreateInlineKeyboardStat(SendFile);
+    RequestWhenAnswer:=True;
+    sendMessage(str_SlctSttstcs_line1+LineEnding+str_SlctSttstcs_line2+LineEnding+
+      str_SlctSttstcs_line3+LineEnding+str_SlctSttstcs_line4, pmHTML, True, ReplyMarkup);
+  finally
+    ReplyMarkup.Free;
+  end;
+end;
+
+procedure TWebhookBot.StatLog(const AMessage: String; UpdateType: TUpdateType);
+var
+  EscMsg: String;
+begin
+  EscMsg:=StringReplace(AMessage, '"', '_', [rfReplaceAll]);
+  EscMsg:=StringReplace(AMessage, LineEnding, '//', [rfReplaceAll]);
+  if Length(EscMsg)>150 then
+    SetLength(EscMsg, 150);
+  if CurrentIsSimpleUser then
+    if Assigned(CurrentUser)then
+      FBrookAction.StatLogger.Log(['@'+CurrentUser.Username, CurrentUser.First_name, CurrentUser.Last_name,
+        CurrentUser.Language_code, UpdateTypeAliases[UpdateType], '"'+EscMsg+'"'])
+    else
+      FBrookAction.StatLogger.Log(['', '', '', '', UpdateTypeAliases[UpdateType], '"'+EscMsg+'"'])
+end;
+
 function TWebhookBot.CreateInlineKeyboardRate: TJSONArray;
 var
   btns: TInlineKeyboardButtons;
@@ -273,6 +415,22 @@ begin
   btn:=TInlineKeyboardButton.Create(str_Rate);
   btn.url:=s_StoreBotRate+BotUsername;
   btns.Add(btn);
+  Result:=TJSONArray.Create;
+  Result.Add(btns);
+end;
+
+function TWebhookBot.CreateInlineKeyboardStat(SendFile: Boolean): TJSONArray;
+var
+  btns: TInlineKeyboardButtons;
+  FileApp: String;
+begin
+  if SendFile then
+    FileApp:='File'
+  else
+    FileApp:='';
+  btns:=TInlineKeyboardButtons.Create;
+  btns.AddButtons([str_Today+' 🔃', s_GetStat+FileApp+' '+s_Today,
+    str_Yesterday, s_GetStat+FileApp+' '+s_Yesterday]);
   Result:=TJSONArray.Create;
   Result.Add(btns);
 end;
@@ -289,6 +447,8 @@ begin
   FFeedbackText:=str_FeedbackText;
   CommandHandlers[cmd_Feedback]:=@TlgrmFeedback;
   CommandHandlers[cmd_Rate]:=@TlgrmRate;
+  CommandHandlers[cmd_Stat]:=@TlgrmStatHandler;
+  CommandHandlers[cmd_StatF]:=@TlgrmStatFHandler;
 end;
 
 destructor TWebhookBot.Destroy;
@@ -303,19 +463,50 @@ begin
   if Assigned(AMessage.ReplyToMessage) then
   begin
     if Assigned(AMessage.ReplyToMessage.From) then
-      {if SameText(AMessage.ReplyToMessage.From.Username, %BotUserName%) then}
+      if SameText(AMessage.ReplyToMessage.From.Username, BotUsername) then
+      begin
         sendMessage(Format(FFeedbackThanks, [AMessage.From.First_name]));
-    With AMessage do
-      FBrookAction.SaveFeedback(From, Text);
+        With AMessage do
+          FBrookAction.SaveFeedback(From, Text);
+      end;
     Exit;
   end;
+  StatLog(AMessage.Text, utMessage);
   FBrookAction.BotMessageHandler(AMessage);
 end;
 
 procedure TWebhookBot.DoReceiveCallbackQuery(ACallback: TCallbackQueryObj);
 begin
   inherited DoReceiveCallbackQuery(ACallback);
+  if not CurrentIsSimpleUser then
+  begin
+    if AnsiStartsStr(s_GetStat+' ', ACallback.Data) then
+      DoCallbackQueryStat(ACallback);
+    if AnsiStartsStr(s_GetStat+s_File+' ', ACallback.Data) then
+      DoCallbackQueryStat(ACallback, True);
+  end;
+  StatLog(ACallback.Data, utCallbackQuery);
   FBrookAction.BotCallbackQuery(ACallback);
+end;
+
+procedure TWebhookBot.DoReceiveChannelPost(AChannelPost: TTelegramMessageObj);
+begin
+  inherited DoReceiveChannelPost(AChannelPost);
+  StatLog(AChannelPost.Text, utChannelPost);
+end;
+
+procedure TWebhookBot.DoReceiveChosenInlineResult(
+  AChosenInlineResult: TTelegramChosenInlineResultObj);
+begin
+  inherited DoReceiveChosenInlineResult(AChosenInlineResult);
+  StatLog(AChosenInlineResult.Query, utChosenInlineResult);
+end;
+
+procedure TWebhookBot.DoReceiveInlineQuery(
+  AnInlineQuery: TTelegramInlineQueryObj);
+begin
+  inherited DoReceiveInlineQuery(AnInlineQuery);
+  StatLog(AnInlineQuery.Query, utInlineQuery);
 end;
 
 procedure TWebhookBot.DebugMessage(const Msg: String);
@@ -403,7 +594,7 @@ procedure TWebhookAction.BotHelpHandler(ASender: TObject;
   const ACommand: String; AMessage: TTelegramMessageObj);
 begin
   Bot.RequestWhenAnswer:=True;
-  Bot.sendMessage(FHelpText);
+  Bot.sendMessage(FHelpText, pmMarkdown);
 end;
 { Caution! You must save this values in db or in configuration file! }
 procedure TWebhookAction.BotSetCommandReply(ASender: TObject;
@@ -420,36 +611,6 @@ begin
     if ACommand=cmd_SetHelp then
       HelpText:=S;
   Bot.sendMessage(str_TxtRplyIsScsChngd);
-end;
-
-procedure TWebhookAction.BotStatHandler(ASender: TObject;
-  const ACommand: String; AMessage: TTelegramMessageObj);
-var
-  S: String;
-begin
-  if IsSimpleUser then
-    Exit;
-  FBot.RequestWhenAnswer:=True;
-  S:=ExtractDelimited(2, AMessage.Text, [' ']);
-  if S<>EmptyStr then
-    DoStat(S)
-  else
-    SendStatInlineKeyboard;
-end;
-
-procedure TWebhookAction.BotStatFHandler(ASender: TObject;
-  const ACommand: String; AMessage: TTelegramMessageObj);
-var
-  S: String;
-begin
-  if IsSimpleUser then
-    Exit;
-  FBot.RequestWhenAnswer:=True;
-  S:=ExtractDelimited(2, AMessage.Text, [' ']);
-  if S<>EmptyStr then
-     DoStat(S, True)
-   else
-     SendStatInlineKeyboard(True);
 end;
 
 procedure TWebhookAction.BotTerminateHandler(ASender: TObject;
@@ -491,99 +652,14 @@ end;
 
 procedure TWebhookAction.BotCallbackQuery(ACallback: TCallbackQueryObj);
 begin
-  if not IsSimpleUser then
-  begin
-    if AnsiStartsStr(s_GetStat+' ', ACallback.Data) then
-      DoCallbackQueryStat(ACallback);
-    if AnsiStartsStr(s_GetStat+s_File+' ', ACallback.Data) then
-      DoCallbackQueryStat(ACallback, True);
-  end;
-  StatLog(ACallback.Data, utCallbackQuery);
   if Assigned(FOnCallbackQuery) then
     FOnCallbackQuery(Self, ACallback);
 end;
 
 procedure TWebhookAction.BotMessageHandler(AMessage: TTelegramMessageObj);
 begin
-  StatLog(AMessage.Text, utMessage);
   if Assigned(FOnUpdateMessage) then
     FOnUpdateMessage(Self, AMessage);
-end;
-
-procedure TWebhookAction.DoCallbackQueryStat(ACallbackQuery: TCallbackQueryObj;
-  SendFile: Boolean = False);
-begin
-  DoStat(ExtractDelimited(2, ACallbackQuery.Data, [' ']), SendFile);
-end;
-
-procedure TWebhookAction.DoGetStat(ADate: TDate = 0; SendFile: Boolean = false);
-var
-  StatFile: TStringList;
-  Msg: String;
-  AFileName: String;
-  i: Integer;
-  ReplyMarkup: TReplyMarkup;
-begin
-  if IsSimpleUser then
-    Exit;
-  ReplyMarkup:=TReplyMarkup.Create;
-  try
-    ReplyMarkup.InlineKeyBoard:=CreateInlineKeyboardStat(SendFile);
-    if SendFile then
-      SendStatLog(ADate, ReplyMarkup)
-    else begin
-      StatFile:=TStringList.Create;
-      try
-        AFileName:=StatLogger.GetFileNameFromDate(ADate);
-        FBot.RequestWhenAnswer:=True;
-        try
-          if FileExists(AFileName) then
-          begin
-            StatFile.LoadFromFile(AFileName);
-            Msg:='';
-            for i:=StatFile.Count-1 downto StatFile.Count-20 do
-            begin
-              if i<0 then
-                Break;
-              Msg+=StatFile[i]+LineEnding;
-            end;
-            EditOrSendMessage(Msg, pmHTML, ReplyMarkup, True);
-          end
-          else
-            EditOrSendMessage(str_SttstcsNtFnd, pmDefault, ReplyMarkup, True);
-        except
-          EditOrSendMessage(str_ErrFldTLdSttstcsFl, pmDefault, ReplyMarkup);
-        end;
-      finally
-        StatFile.Free;
-      end;
-    end;
-  finally
-    ReplyMarkup.Free;
-  end;
-end;
-
-procedure TWebhookAction.DoStat(const SDate: String; SendFile: Boolean = false);
-var
-  FDate: TDate;
-  S: String;
-begin
-  if not Assigned(FStatLogger) then
-    Exit;
-  S:=Trim(SDate);
-  if (S=s_Today) or (S=EmptyStr) then
-    FDate:=Date
-  else
-    if S=s_Yesterday then
-      FDate:=Date-1
-    else
-      if not TryStrToDate(S, FDate, StatDateFormat) then
-      begin
-        FBot.RequestWhenAnswer:=True;
-        FBot.sendMessage(str_EntrDtInFrmt);
-        Exit;
-      end;
-  DoGetStat(FDate, SendFile);
 end;
 
 procedure TWebhookAction.SendStatLog(ADate: TDate = 0; AReplyMarkup: TReplyMarkup = nil);
@@ -605,41 +681,10 @@ begin
   end;
 end;
 
-procedure TWebhookAction.SendStatInlineKeyboard(SendFile: Boolean);
-var
-  ReplyMarkup: TReplyMarkup;
-begin
-  ReplyMarkup:=TReplyMarkup.Create;
-  try
-    ReplyMarkup.InlineKeyBoard:=CreateInlineKeyboardStat(SendFile);
-    FBot.RequestWhenAnswer:=True;
-    FBot.sendMessage(str_SlctSttstcs_line1+LineEnding+str_SlctSttstcs_line2+LineEnding+
-      str_SlctSttstcs_line3+LineEnding+str_SlctSttstcs_line4, pmHTML, True, ReplyMarkup);
-  finally
-    ReplyMarkup.Free;
-  end;
-end;
-
 procedure TWebhookAction.LogMessage(ASender: TObject; EventType: TEventType; const Msg: String);
 begin
   if Assigned(FLogger) then
     Logger.Log(EventType, Msg);
-end;
-
-procedure TWebhookAction.StatLog(const AMessage: String; UpdateType: TUpdateType);
-var
-  EscMsg: String;
-begin
-  EscMsg:=StringReplace(AMessage, '"', '_', [rfReplaceAll]);
-  EscMsg:=StringReplace(AMessage, LineEnding, '//', [rfReplaceAll]);
-  if Length(EscMsg)>150 then
-    SetLength(EscMsg, 150);
-  if IsSimpleUser then
-    if Assigned(Bot.CurrentUser)then
-      StatLogger.Log(['@'+Bot.CurrentUser.Username, Bot.CurrentUser.First_name, Bot.CurrentUser.Last_name,
-        Bot.CurrentUser.Language_code, UpdateTypeAliases[UpdateType], '"'+EscMsg+'"'])
-    else
-      StatLogger.Log(['', '', '', '', UpdateTypeAliases[UpdateType], '"'+EscMsg+'"'])
 end;
 
 { Sometimes, if the message is sent to the result of the CallBack call,
@@ -653,35 +698,17 @@ begin
     Bot.editMessageText(AMessage, AParseMode, True, ReplyMarkup);
 end;
 
-function TWebhookAction.CreateInlineKeyboardStat(SendFile: Boolean): TJSONArray;
-var
-  btns: TInlineKeyboardButtons;
-  FileApp: String;
-begin
-  if SendFile then
-    FileApp:='File'
-  else
-    FileApp:='';
-  btns:=TInlineKeyboardButtons.Create;
-  btns.AddButtons([str_Today+' 🔃', s_GetStat+FileApp+' '+s_Today,
-    str_Yesterday, s_GetStat+FileApp+' '+s_Yesterday]);
-  Result:=TJSONArray.Create;
-  Result.Add(btns);
-end;
-
 constructor TWebhookAction.Create;
 begin
   inherited Create;
   FStatLogger:=TtgStatLog.Create(nil);
   FStatLogger.Active:=False;
   FBot:=TWebhookBot.Create(FToken, Self);
-  FBot.CommandHandlers[cmd_Start]:=@BotStartHandler;
-  FBot.CommandHandlers[cmd_Help]:=@BotHelpHandler;
-  FBot.CommandHandlers[cmd_Stat]:=@BotStatHandler;
-  FBot.CommandHandlers[cmd_StatF]:=@BotStatFHandler;
+  FBot.CommandHandlers[cmd_Start]:=    @BotStartHandler;
+  FBot.CommandHandlers[cmd_Help]:=     @BotHelpHandler;
   FBot.CommandHandlers[cmd_Terminate]:=@BotTerminateHandler;
-  FBot.CommandHandlers[cmd_SetStart]:=@BotSetCommandReply;
-  FBot.CommandHandlers[cmd_SetHelp]:=@BotSetCommandReply;
+  FBot.CommandHandlers[cmd_SetStart]:= @BotSetCommandReply;
+  FBot.CommandHandlers[cmd_SetHelp]:=  @BotSetCommandReply;
 end;
 
 destructor TWebhookAction.Destroy;
