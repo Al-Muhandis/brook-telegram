@@ -121,11 +121,12 @@ type
   end;
 
 function ExtractArgPart(const ASource, ACommand: String): String;
+function FormatStatRec(const S: String): String;
 
 implementation
 { Please define ni18n (No i18n) for excluding translate unit from uses and exclude i18n support }
 uses jsonparser, BrookHttpConsts, strutils, BrookApplication, jsonscanner{$IFNDEF ni18n},
-  Translations{$ENDIF};
+  Translations{$ENDIF}, tgutils;
 
 // Please use i18n for localization *** Пожалуйста, используйте i18n для локализации
 resourcestring
@@ -187,6 +188,22 @@ begin
   Result:=Trim(RightStr(ASource, Length(ASource)-Length(ACommand)));
 end;
 
+function FormatStatRec(const S: String): String;
+var
+  Ss: TStringList;
+  l: Integer;
+begin
+  Ss:=TStringList.Create;
+  l:=ExtractStrings([';'], [' '], PChar(S), Ss, True);
+  if l<>8 then
+    Result:='Stat line parser error'
+  else
+    Result:=Ss[0]+'; '+'['+Ss[1]+'](tg://user?id='+Ss[1]+') '+
+      MarkdownEscape(Ss[2]+' {'+Ss[3]+' '+Ss[4]+'}')+ ' '+
+      MarkdownEscape(Ss[5])+' <'+MarkdownEscape(Ss[6])+'> '+MarkdownEscape(Ss[7]);
+  Ss.Free;
+end;
+
 { TWebhookBot }
 
 procedure TWebhookBot.SetBrookAction(AValue: TWebhookAction);
@@ -210,7 +227,7 @@ end;
 procedure TWebhookBot.DoGetStat(ADate: TDate = 0; SendFile: Boolean = false);
 var
   StatFile: TStringList;
-  Msg: String;
+  Msg, SDate: String;
   AFileName: String;
   i: Integer;
   ReplyMarkup: TReplyMarkup;
@@ -230,15 +247,16 @@ begin
         try
           if FileExists(AFileName) then
           begin
+            DateTimeToString(SDate, 'dd-mm-yyyy', ADate);
             StatFile.LoadFromFile(AFileName);
-            Msg:='';
+            Msg:='*Statistics for '+SDate+'*'+LineEnding;
             for i:=StatFile.Count-1 downto StatFile.Count-20 do
             begin
               if i<0 then
                 Break;
-              Msg+=StatFile[i]+LineEnding;
+              Msg+=FormatStatRec(StatFile[i])+LineEnding;
             end;
-            editMessageText(Msg, pmDefault, True, ReplyMarkup);
+            editMessageText(Msg, pmMarkdown, True, ReplyMarkup);
           end
           else
             editMessageText(str_SttstcsNtFnd, pmDefault, True, ReplyMarkup);
@@ -394,16 +412,15 @@ procedure TWebhookBot.StatLog(const AMessage: String; UpdateType: TUpdateType);
 var
   EscMsg: String;
 begin
-  EscMsg:=StringReplace(AMessage, '"', '_', [rfReplaceAll]);
-  EscMsg:=StringReplace(AMessage, LineEnding, '//', [rfReplaceAll]);
+  EscMsg:=AMessage;
   if Length(EscMsg)>150 then
     SetLength(EscMsg, 150);
   if CurrentIsSimpleUser then
     if Assigned(CurrentUser)then
-      FBrookAction.StatLogger.Log(['@'+CurrentUser.Username, CurrentUser.First_name, CurrentUser.Last_name,
-        CurrentUser.Language_code, UpdateTypeAliases[UpdateType], '"'+EscMsg+'"'])
+      FBrookAction.StatLogger.Log([IntToStr(CurrentChatId), '@'+CurrentUser.Username, CurrentUser.First_name, CurrentUser.Last_name,
+        CurrentUser.Language_code, UpdateTypeAliases[UpdateType], '"'+StringToJSONString(EscMsg)+'"'])
     else
-      FBrookAction.StatLogger.Log(['', '', '', '', UpdateTypeAliases[UpdateType], '"'+EscMsg+'"'])
+      FBrookAction.StatLogger.Log(['', '', '', '', '', UpdateTypeAliases[UpdateType], '"'+EscMsg+'"'])
 end;
 
 function TWebhookBot.CreateInlineKeyboardRate: TJSONArray;
@@ -703,6 +720,7 @@ begin
   inherited Create;
   FStatLogger:=TtgStatLog.Create(nil);
   FStatLogger.Active:=False;
+  FStatLogger.TimeStampFormat:='hh:nn:ss';
   FBot:=TWebhookBot.Create(FToken, Self);
   FBot.CommandHandlers[cmd_Start]:=    @BotStartHandler;
   FBot.CommandHandlers[cmd_Help]:=     @BotHelpHandler;
