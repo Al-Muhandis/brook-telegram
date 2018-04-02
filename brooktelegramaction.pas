@@ -222,6 +222,11 @@ procedure TWebhookBot.DoCallbackQueryStat(ACallbackQuery: TCallbackQueryObj;
   SendFile: Boolean);
 begin
   DoStat(ExtractDelimited(2, ACallbackQuery.Data, [' ']), SendFile);
+  { After the user presses a callback button, Telegram clients will display a progress bar until
+you call answerCallbackQuery. It is, therefore, necessary to react by calling answerCallbackQuery
+even if no notification to the user is needed }
+  RequestWhenAnswer:=False;
+  answerCallbackQuery(ACallbackQuery.ID);
 end;
 
 procedure TWebhookBot.DoGetStat(ADate: TDate = 0; SendFile: Boolean = false);
@@ -243,7 +248,7 @@ begin
       StatFile:=TStringList.Create;
       try
         AFileName:=FBrookAction.StatLogger.GetFileNameFromDate(ADate);
-        RequestWhenAnswer:=True;
+        RequestWhenAnswer:=False;
         try
           if FileExists(AFileName) then
           begin
@@ -493,17 +498,28 @@ begin
 end;
 
 procedure TWebhookBot.DoReceiveCallbackQuery(ACallback: TCallbackQueryObj);
+var
+  AHandled: Boolean;
 begin
+  AHandled:=False;
   inherited DoReceiveCallbackQuery(ACallback);
   if not CurrentIsSimpleUser then
   begin
     if AnsiStartsStr(s_GetStat+' ', ACallback.Data) then
+    begin
+      AHandled:=True;
       DoCallbackQueryStat(ACallback);
+    end;
     if AnsiStartsStr(s_GetStat+s_File+' ', ACallback.Data) then
+    begin
+      AHandled:=True;
       DoCallbackQueryStat(ACallback, True);
-  end;
-  StatLog(ACallback.Data, utCallbackQuery);
-  FBrookAction.BotCallbackQuery(ACallback);
+    end;
+  end
+  else
+    StatLog(ACallback.Data, utCallbackQuery);
+  if not AHandled then
+    FBrookAction.BotCallbackQuery(ACallback);
 end;
 
 procedure TWebhookBot.DoReceiveChannelPost(AChannelPost: TTelegramMessageObj);
