@@ -5,7 +5,7 @@ unit telegramwebhookaction;
 interface
 
 uses
-  BrookAction, brooktelegramaction, BrookHttpDefs, tgtypes;
+  BrookAction, brooktelegramaction, tgtypes;
 
 type
 
@@ -15,15 +15,18 @@ type
   protected
     procedure TlgrmTestCmdHandler({%H-}ASender: TObject; const ACommand: String;
       {%H-}AMessage: TTelegramMessageObj);
+    procedure TlgrmMyUserIDCmdHandler({%H-}ASender: TObject; const {%H-}ACommand: String;
+      {%H-}AMessage: TTelegramMessageObj);
+    procedure TlgrmReceiveMessage({%H-}ASender: TObject; AMessage: TTelegramMessageObj);
   public
-    constructor Create(ARequest: TBrookRequest; AResponse: TBrookResponse); overload;
+    constructor Create; overload;
       override;
     procedure Post; override;
   end;
 
 implementation
 
-uses BrookException, sysutils, brokers;
+uses BrookException, sysutils, brokers, tgsendertypes, tgutils;
 
 { Handler for the "TestCmd" telegram command (It is called through /TestCmd in chat with bot) }
 procedure TMyAction.TlgrmTestCmdHandler(ASender: TObject;
@@ -33,11 +36,26 @@ begin
   Bot.sendMessage('This is the response to the '+ACommand+
     ' command which processed by the TlgrmTestCmd procedure');
 end;
-
-constructor TMyAction.Create(ARequest: TBrookRequest; AResponse: TBrookResponse
-  );
+{ A simple example getting ID of the message sender it is Yours }
+procedure TMyAction.TlgrmMyUserIDCmdHandler(ASender: TObject;
+  const ACommand: String; AMessage: TTelegramMessageObj);
 begin
-  inherited Create(ARequest, AResponse);
+  EditOrSendMessage(MarkdownEscape(AMessage.From.First_name)+
+    '! [Your](tg://user?id='+IntToStr(AMessage.From.ID)+') user ID is '+IntToStr(AMessage.From.ID),
+    pmMarkdown);
+end;
+
+{ A simple example of a repeater of the text that creates a code formatting when the bot responds }
+procedure TMyAction.TlgrmReceiveMessage(ASender: TObject;
+  AMessage: TTelegramMessageObj);
+begin
+  if (AMessage.Text<>EmptyStr) and not AMessage.Text.StartsWith('/') then
+    EditOrSendMessage('```'+LineEnding+AMessage.Text+LineEnding+'```', pmMarkdown, nil, True);
+end;
+
+constructor TMyAction.Create;
+begin
+  inherited Create;
   { This isnt real telegram token! Please get token from
   https://core.telegram.org/bots#botfather }
   Token:='123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11';
@@ -47,6 +65,8 @@ begin
     'and  https://github.com/Al-Muhandis/fp-telegram';
   { Custom command definition example }
   Bot.CommandHandlers['/testcmd']:=@TlgrmTestCmdHandler;
+  Bot.CommandHandlers['/myid']:=@TlgrmMyUserIDCmdHandler;
+  Bot.OnReceiveMessage:=@TlgrmReceiveMessage;
 
   { Please enter 1234567890 - [your ]user ID (integer value) for availabality of
   admin commands (/stat, /statf /terminate)}
