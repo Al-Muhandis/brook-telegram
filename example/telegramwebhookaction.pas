@@ -86,6 +86,11 @@ begin
   then the logging just will not be maintained }
   StatLogger.Paused:=False; // run statistics log
   Logger:=BLogger;
+  Bot.UpdateLogger:=TtgStatLog.Create(nil);
+  Bot.UpdateLogger.FilePrefix:='stat';
+  Bot.UpdateLogger.FilePostfix:='.log';
+  Bot.UpdateLogger.Directory:=ExtractFileDir(ParamStr(0))+PathDelim+'stat'+PathDelim;
+  Bot.UpdateLogger.Paused:=False;
 end;
 
 procedure TMyAction.Post;

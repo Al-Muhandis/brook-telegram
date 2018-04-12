@@ -15,33 +15,26 @@ type
   TWebhookBot = class;
 
   TRateEvent = procedure (var RateText: String; ReplyMarkup: TReplyMarkup) of object;
+  TReceiveDeepLinkEvent = procedure (const AParameter: String) of object;
 
   { TWebhookAction }
 
   TWebhookAction = class(TBrookAction)
   private
-    FHelpText: String;
     FLogger: TEventLog;
     FOnCallbackQuery: TCallbackEvent;
     FOnUpdateMessage: TMessageEvent;
-    FStartText: String;
     FStatLogger: TtgStatLog;
     FToken: String;
     FBot: TWebhookBot;
-    procedure BotStartHandler({%H-}ASender: TObject; const {%H-}ACommand: String;
-      {%H-}AMessage: TTelegramMessageObj);
-    procedure BotHelpHandler({%H-}ASender: TObject; const {%H-}ACommand: String;
-      {%H-}AMessage: TTelegramMessageObj);
     procedure BotSetCommandReply({%H-}ASender: TObject; const ACommand: String;
       AMessage: TTelegramMessageObj);
     procedure BotTerminateHandler({%H-}ASender: TObject; const {%H-}ACommand: String;
       {%H-}AMessage: TTelegramMessageObj);
     procedure SetBot({%H-}AValue: TWebhookBot);
-    procedure SetHelpText(AValue: String);
     procedure SetLogger(AValue: TEventLog);
     procedure SetOnCallbackQuery(AValue: TCallbackEvent);
     procedure SetOnUpdateMessage(AValue: TMessageEvent);
-    procedure SetStartText(AValue: String);
     procedure SetStatLogger(AValue: TtgStatLog);
     procedure SetToken(AValue: String);
     procedure SendStatLog(ADate: TDate = 0; AReplyMarkup: TReplyMarkup = nil);
@@ -61,8 +54,6 @@ type
     property Token: String read FToken write SetToken;
     property OnCallbackQuery: TCallbackEvent read FOnCallbackQuery write SetOnCallbackQuery;
     property OnUpdateMessage: TMessageEvent read FOnUpdateMessage write SetOnUpdateMessage;
-    property StartText: String read FStartText write SetStartText; // Text for /start command reply
-    property HelpText: String read FHelpText write SetHelpText;  // Text for /help command reply
     property StatLogger: TtgStatLog read FStatLogger write SetStatLogger;
     property Logger: TEventLog read FLogger write SetLogger;
     property Bot: TWebhookBot read FBot write SetBot;
@@ -71,18 +62,28 @@ type
   { TWebhookBot }
   TWebhookBot = class(TTelegramSender)
   private
+    FHelpText: String;
     FBrookAction: TWebhookAction;
     FFeedbackText: String;
     FFeedbackThanks: String;
     FOnRate: TRateEvent;
+    FOnReceiveDeepLinking: TReceiveDeepLinkEvent;
+    FStartText: String;
     FUserPermissions: TStringList;
     procedure DoCallbackQueryStat(ACallbackQuery: TCallbackQueryObj; SendFile: Boolean = False);
     procedure DoGetStat(ADate: TDate = 0; SendFile: Boolean = false);
     procedure DoStat(const SDate: String; SendFile: Boolean = false);
     function GetUserStatus(ID: Int64): TUserStatus;
     procedure SetBrookAction(AValue: TWebhookAction);
+    procedure SetHelpText(AValue: String);
     procedure SetOnRate(AValue: TRateEvent);
+    procedure SetOnReceiveDeepLinking(AValue: TReceiveDeepLinkEvent);
+    procedure SetStartText(AValue: String);
     procedure SetUserStatus(ID: Int64; AValue: TUserStatus);
+    procedure TlgrmStartHandler({%H-}ASender: TObject; const {%H-}ACommand: String;
+      {%H-}AMessage: TTelegramMessageObj);
+    procedure TlgrmHelpHandler({%H-}ASender: TObject; const {%H-}ACommand: String;
+      {%H-}AMessage: TTelegramMessageObj);
     procedure TlgrmFeedback({%H-}ASender: TObject; const {%H-}ACommand: String;
       {%H-}AMessage: TTelegramMessageObj);
     procedure TlgrmRate({%H-}ASender: TObject; const {%H-}ACommand: String;
@@ -97,6 +98,7 @@ type
   protected
     function CreateInlineKeyboardRate: TJSONArray;
     function CreateInlineKeyboardStat(SendFile: Boolean): TJSONArray;
+    procedure DoReceiveDeepLinking(const AParameter: String);
     procedure DoReceiveMessageUpdate(AMessage: TTelegramMessageObj); override;
     procedure DoReceiveCallbackQuery(ACallback: TCallbackQueryObj); override;
     procedure DoReceiveChannelPost(AChannelPost: TTelegramMessageObj); override;
@@ -114,10 +116,13 @@ type
     constructor Create(const AToken: String; AWebhookAction: TWebhookAction);
     destructor Destroy; override;
     procedure LoadUserStatusValues(AStrings: TStrings);
+    property StartText: String read FStartText write SetStartText; // Text for /start command reply
+    property HelpText: String read FHelpText write SetHelpText;  // Text for /help command reply
     property FeedbackText: String read FFeedbackText write FFeedbackText;
     property FeedbackThanks: String read FFeedbackThanks write FFeedbackThanks;
     property UserStatus [ID: Int64]: TUserStatus read GetUserStatus write SetUserStatus;
     property OnRate: TRateEvent read FOnRate write SetOnRate;
+    property OnReceiveDeepLinking: TReceiveDeepLinkEvent read FOnReceiveDeepLinking write SetOnReceiveDeepLinking;
   end;
 
 function ExtractArgPart(const ASource, ACommand: String): String;
@@ -212,10 +217,28 @@ begin
   FBrookAction:=AValue;
 end;
 
+procedure TWebhookBot.SetHelpText(AValue: String);
+begin
+  if FHelpText=AValue then Exit;
+  FHelpText:=AValue;
+end;
+
 procedure TWebhookBot.SetOnRate(AValue: TRateEvent);
 begin
   if FOnRate=AValue then Exit;
   FOnRate:=AValue;
+end;
+
+procedure TWebhookBot.SetOnReceiveDeepLinking(AValue: TReceiveDeepLinkEvent);
+begin
+  if FOnReceiveDeepLinking=AValue then Exit;
+  FOnReceiveDeepLinking:=AValue;
+end;
+
+procedure TWebhookBot.SetStartText(AValue: String);
+begin
+  if FStartText=AValue then Exit;
+  FStartText:=AValue;
 end;
 
 procedure TWebhookBot.DoCallbackQueryStat(ACallbackQuery: TCallbackQueryObj;
@@ -318,6 +341,25 @@ begin
       Exit;
   end;
   FUserPermissions.Values[IntToStr(ID)]:=UserStatusChars[AValue];
+end;
+
+procedure TWebhookBot.TlgrmStartHandler(ASender: TObject;
+  const ACommand: String; AMessage: TTelegramMessageObj);
+begin
+  if not AMessage.Text.Contains(' ') then
+  begin
+    RequestWhenAnswer:=True;
+    sendMessage(FStartText, pmMarkdown);
+  end
+  else
+    DoReceiveDeepLinking(RightStr(AMessage.Text, AMessage.Text.Length-Length(ACommand)));
+end;
+
+procedure TWebhookBot.TlgrmHelpHandler(ASender: TObject;
+  const ACommand: String; AMessage: TTelegramMessageObj);
+begin
+  RequestWhenAnswer:=True;
+  sendMessage(FHelpText, pmMarkdown);
 end;
 
 procedure TWebhookBot.TlgrmFeedback(ASender: TObject; const ACommand: String;
@@ -457,6 +499,12 @@ begin
   Result.Add(btns);
 end;
 
+procedure TWebhookBot.DoReceiveDeepLinking(const AParameter: String);
+begin
+  if Assigned(FOnReceiveDeepLinking) then
+    FOnReceiveDeepLinking(AParameter);
+end;
+
 constructor TWebhookBot.Create(const AToken: String;
   AWebhookAction: TWebhookAction);
 begin
@@ -467,10 +515,12 @@ begin
   FUserPermissions.Duplicates:=dupIgnore;
   FFeedbackThanks:=str_FeedbackThanks;
   FFeedbackText:=str_FeedbackText;
+  CommandHandlers[cmd_Start]:=   @TlgrmStartHandler;
+  CommandHandlers[cmd_Help]:=    @TlgrmHelpHandler;
   CommandHandlers[cmd_Feedback]:=@TlgrmFeedback;
-  CommandHandlers[cmd_Rate]:=@TlgrmRate;
-  CommandHandlers[cmd_Stat]:=@TlgrmStatHandler;
-  CommandHandlers[cmd_StatF]:=@TlgrmStatFHandler;
+  CommandHandlers[cmd_Rate]:=    @TlgrmRate;
+  CommandHandlers[cmd_Stat]:=    @TlgrmStatHandler;
+  CommandHandlers[cmd_StatF]:=   @TlgrmStatFHandler;
 end;
 
 destructor TWebhookBot.Destroy;
@@ -592,12 +642,6 @@ begin
     FBot.Token:=FToken;
 end;
 
-procedure TWebhookAction.SetStartText(AValue: String);
-begin
-  if FStartText=AValue then Exit;
-  FStartText:=AValue;
-end;
-
 procedure TWebhookAction.SetStatLogger(AValue: TtgStatLog);
 begin
   if FStatLogger=AValue then Exit;
@@ -616,19 +660,6 @@ begin
   FOnUpdateMessage:=AValue;
 end;
 
-procedure TWebhookAction.BotStartHandler(ASender: TObject;
-  const ACommand: String; AMessage: TTelegramMessageObj);
-begin
-  Bot.RequestWhenAnswer:=True;
-  Bot.sendMessage(FStartText, pmMarkdown);
-end;
-
-procedure TWebhookAction.BotHelpHandler(ASender: TObject;
-  const ACommand: String; AMessage: TTelegramMessageObj);
-begin
-  Bot.RequestWhenAnswer:=True;
-  Bot.sendMessage(FHelpText, pmMarkdown);
-end;
 { Caution! You must save this values in db or in configuration file! }
 procedure TWebhookAction.BotSetCommandReply(ASender: TObject;
   const ACommand: String; AMessage: TTelegramMessageObj);
@@ -639,10 +670,10 @@ begin
     Exit;
   S:=ExtractArgPart(AMessage.Text, ACommand);
   if ACommand=cmd_SetStart then
-    StartText:=S
+    Bot.StartText:=S
   else
     if ACommand=cmd_SetHelp then
-      HelpText:=S;
+      Bot.HelpText:=S;
   Bot.sendMessage(str_TxtRplyIsScsChngd);
 end;
 
@@ -659,12 +690,6 @@ end;
 procedure TWebhookAction.SetBot(AValue: TWebhookBot);
 begin
 // todo Does It need a code here? Can it be so?
-end;
-
-procedure TWebhookAction.SetHelpText(AValue: String);
-begin
-  if FHelpText=AValue then Exit;
-  FHelpText:=AValue;
 end;
 
 procedure TWebhookAction.SetLogger(AValue: TEventLog);
@@ -738,8 +763,6 @@ begin
   FStatLogger.Active:=False;
   FStatLogger.TimeStampFormat:='hh:nn:ss';
   FBot:=TWebhookBot.Create(FToken, Self);
-  FBot.CommandHandlers[cmd_Start]:=    @BotStartHandler;
-  FBot.CommandHandlers[cmd_Help]:=     @BotHelpHandler;
   FBot.CommandHandlers[cmd_Terminate]:=@BotTerminateHandler;
   FBot.CommandHandlers[cmd_SetStart]:= @BotSetCommandReply;
   FBot.CommandHandlers[cmd_SetHelp]:=  @BotSetCommandReply;
