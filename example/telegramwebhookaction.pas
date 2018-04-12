@@ -17,6 +17,8 @@ type
       {%H-}AMessage: TTelegramMessageObj);
     procedure TlgrmMyUserIDCmdHandler({%H-}ASender: TObject; const {%H-}ACommand: String;
       {%H-}AMessage: TTelegramMessageObj);
+    procedure TlgrmMyHelpMarkdownHandler({%H-}ASender: TObject; const {%H-}ACommand: String;
+      {%H-}AMessage: TTelegramMessageObj);
     procedure TlgrmReceiveMessage({%H-}ASender: TObject; AMessage: TTelegramMessageObj);
   public
     constructor Create; overload;
@@ -45,6 +47,14 @@ begin
     pmMarkdown);
 end;
 
+procedure TMyAction.TlgrmMyHelpMarkdownHandler(ASender: TObject;
+  const ACommand: String; AMessage: TTelegramMessageObj);
+begin
+  EditOrSendMessage('markdown'+LineEnding+'**bold text**'+LineEnding+'__italic text__'+LineEnding+
+    '`inline fixed-width code`'+LineEnding+'```block_language'+LineEnding+
+    'pre-formatted fixed-width code block```', pmDefault);
+end;
+
 { A simple example of a repeater of the text that creates a code formatting when the bot responds }
 procedure TMyAction.TlgrmReceiveMessage(ASender: TObject;
   AMessage: TTelegramMessageObj);
@@ -66,6 +76,7 @@ begin
   { Custom command definition example }
   Bot.CommandHandlers['/testcmd']:=@TlgrmTestCmdHandler;
   Bot.CommandHandlers['/myid']:=@TlgrmMyUserIDCmdHandler;
+  Bot.CommandHandlers['/markdown']:=@TlgrmMyHelpMarkdownHandler;
   Bot.OnReceiveMessage:=@TlgrmReceiveMessage;
 
   { Please enter 1234567890 - [your ]user ID (integer value) for availabality of
