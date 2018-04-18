@@ -48,6 +48,7 @@ type
     function IsBanned: Boolean;
     procedure SaveFeedback(AFrom: TTelegramUserObj; AMessage: String); virtual; abstract;
   public
+    function AppDir: String;
     constructor Create; override;
     destructor Destroy; override;
     procedure Post; override;
@@ -706,6 +707,11 @@ end;
 function TWebhookAction.IsBanned: Boolean;
 begin
   Result:=Bot.CurrentIsBanned;
+end;
+
+function TWebhookAction.AppDir: String;
+begin
+  Result:=IncludeTrailingPathDelimiter(ExtractFileDir(ParamStr(0)));
 end;
 
 procedure TWebhookAction.BotCallbackQuery(ACallback: TCallbackQueryObj);
