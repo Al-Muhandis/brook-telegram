@@ -72,8 +72,9 @@ type
     FStartText: String;
     FUserPermissions: TStringList;
     procedure DoCallbackQueryStat(ACallbackQuery: TCallbackQueryObj; SendFile: Boolean = False);
-    procedure DoGetStat(ADate: TDate = 0; SendFile: Boolean = false);
-    procedure DoStat(const SDate: String; SendFile: Boolean = false);
+    procedure DoGetStat(ADate: TDate = 0; Scroll: Boolean = False; Offset: Integer = 0);
+    procedure DoGetStatFile(ADate: TDate = 0);
+    procedure DoStat(const SDate: String; const SOffset: String = ''; SendFile: Boolean = false);
     function GetUserStatus(ID: Int64): TUserStatus;
     procedure SetBrookAction(AValue: TWebhookAction);
     procedure SetHelpText(AValue: String);
@@ -97,8 +98,12 @@ type
     procedure SendStatInlineKeyboard(SendFile: Boolean = False);
     procedure StatLog(const AMessage: String; UpdateType: TUpdateType);
   protected
-    function CreateInlineKeyboardRate: TJSONArray;
-    function CreateInlineKeyboardStat(SendFile: Boolean): TJSONArray;
+    function CreateInlineKeyboardRate: TInlineKeyboard;
+    function CreateInlineKeyboardStat(ADate: TDate): TInlineKeyboard;
+    function CreateInlineKeyboardStat(ADate: TDate; SendFile: Boolean): TInlineKeyboard; overload;
+    function CreateInlineKeyboardStatFile: TInlineKeyboard;
+    function CreateInlineKeyboardStat(ADate: TDate; Len: Integer; Offset: Integer = 0;
+      Step: Integer = 20): TInlineKeyboard; overload;
     procedure DoReceiveDeepLinking(const AParameter: String);
     procedure DoReceiveMessageUpdate(AMessage: TTelegramMessageObj); override;
     procedure DoReceiveCallbackQuery(ACallback: TCallbackQueryObj); override;
@@ -150,8 +155,11 @@ resourcestring
   str_SlctSttstcs_line4='where <i>date</i> is <i>today</i> or <i>yesterday</i> or in format <i>dd-mm-yyyy</i>';
   str_Today='Today';
   str_Yesterday='Yesterday';
+  str_PrevDay='Prev day';
+  str_NextDay='Next day';
   str_Rate='Rate';
   str_RateText='Please leave feedback on "Storebot" if you like our bot!';
+  str_Browse='Browse';
 
 
 const
@@ -245,7 +253,8 @@ end;
 procedure TWebhookBot.DoCallbackQueryStat(ACallbackQuery: TCallbackQueryObj;
   SendFile: Boolean);
 begin
-  DoStat(ExtractDelimited(2, ACallbackQuery.Data, [' ']), SendFile);
+  DoStat(ExtractDelimited(2, ACallbackQuery.Data, [' ']),
+    ExtractDelimited(3, ACallbackQuery.Data, [' ']), SendFile);
   { After the user presses a callback button, Telegram clients will display a progress bar until
 you call answerCallbackQuery. It is, therefore, necessary to react by calling answerCallbackQuery
 even if no notification to the user is needed }
@@ -253,55 +262,83 @@ even if no notification to the user is needed }
   answerCallbackQuery(ACallbackQuery.ID);
 end;
 
-procedure TWebhookBot.DoGetStat(ADate: TDate = 0; SendFile: Boolean = false);
+procedure TWebhookBot.DoGetStat(ADate: TDate; Scroll: Boolean; Offset: Integer);
 var
   StatFile: TStringList;
   Msg, SDate: String;
   AFileName: String;
   i: Integer;
   ReplyMarkup: TReplyMarkup;
+const
+  Step=20;
 begin
   if CurrentIsSimpleUser then
     Exit;
   ReplyMarkup:=TReplyMarkup.Create;
   try
-    ReplyMarkup.InlineKeyBoard:=CreateInlineKeyboardStat(SendFile);
-    if SendFile then
-      FBrookAction.SendStatLog(ADate, ReplyMarkup)
-    else begin
-      StatFile:=TStringList.Create;
+    StatFile:=TStringList.Create;
+    try
+      AFileName:=FBrookAction.StatLogger.GetFileNameFromDate(ADate);
+      RequestWhenAnswer:=False;
       try
-        AFileName:=FBrookAction.StatLogger.GetFileNameFromDate(ADate);
-        RequestWhenAnswer:=False;
-        try
-          if FileExists(AFileName) then
+        if FileExists(AFileName) then
+        begin
+          DateTimeToString(SDate, 'dd-mm-yyyy', ADate);
+          StatFile.LoadFromFile(AFileName);
+          if not Scroll then
           begin
-            DateTimeToString(SDate, 'dd-mm-yyyy', ADate);
-            StatFile.LoadFromFile(AFileName);
+            ReplyMarkup.InlineKeyBoard:=CreateInlineKeyboardStat(ADate);
             Msg:='*Statistics for '+SDate+'*'+LineEnding;
-            for i:=StatFile.Count-1 downto StatFile.Count-20 do
+            for i:=StatFile.Count-1 downto StatFile.Count-15 do
             begin
               if i<0 then
                 Break;
               Msg+=FormatStatRec(StatFile[i])+LineEnding;
             end;
-            editMessageText(Msg, pmMarkdown, True, ReplyMarkup);
           end
-          else
-            editMessageText(str_SttstcsNtFnd, pmDefault, True, ReplyMarkup);
-        except
-          editMessageText(str_ErrFldTLdSttstcsFl, pmDefault, True, ReplyMarkup);
-        end;
-      finally
-        StatFile.Free;
+          else begin
+            ReplyMarkup.InlineKeyBoard:=CreateInlineKeyboardStat(ADate, StatFile.Count, Offset,
+              Step);
+            Msg:='*Statistics for '+SDate+'*'+LineEnding;
+            for i:=Offset to Offset+Step-1 do
+            begin
+              if i>=StatFile.Count then
+                Break;
+              Msg+=FormatStatRec(StatFile[i])+LineEnding;
+            end;
+          end;
+          editMessageText(Msg, pmMarkdown, True, ReplyMarkup);
+        end
+        else
+          editMessageText(str_SttstcsNtFnd, pmDefault, True, ReplyMarkup);
+      except
+        editMessageText(str_ErrFldTLdSttstcsFl, pmDefault, True, ReplyMarkup);
       end;
+    finally
+      StatFile.Free;
     end;
   finally
     ReplyMarkup.Free;
   end;
 end;
 
-procedure TWebhookBot.DoStat(const SDate: String; SendFile: Boolean = false);
+procedure TWebhookBot.DoGetStatFile(ADate: TDate);
+var
+  ReplyMarkup: TReplyMarkup;
+begin
+  if CurrentIsSimpleUser then
+    Exit;
+  ReplyMarkup:=TReplyMarkup.Create;
+  try
+    ReplyMarkup.InlineKeyBoard:=CreateInlineKeyboardStatFile;
+    FBrookAction.SendStatLog(ADate, ReplyMarkup)
+  finally
+    ReplyMarkup.Free;
+  end;
+end;
+
+procedure TWebhookBot.DoStat(const SDate: String; const SOffset: String;
+  SendFile: Boolean);
 var
   FDate: TDate;
   S: String;
@@ -315,13 +352,19 @@ begin
     if S=s_Yesterday then
       FDate:=Date-1
     else
-      if not TryStrToDate(S, FDate, StatDateFormat) then
+      if not TryStrToDate(S, FDate, StatDateFormat, '-') then
       begin
         RequestWhenAnswer:=True;
         sendMessage(str_EntrDtInFrmt);
         Exit;
       end;
-  DoGetStat(FDate, SendFile);
+  if SOffset=EmptyStr then
+    if not SendFile then
+      DoGetStat(FDate)
+    else
+      DoGetStatFile(FDate)
+  else
+    DoGetStat(FDate, True, StrToIntDef(SOffset, 0));
 end;
 
 function TWebhookBot.GetUserStatus(ID: Int64): TUserStatus;
@@ -401,14 +444,15 @@ end;
 procedure TWebhookBot.TlgrmStatHandler(ASender: TObject;
   const ACommand: String; AMessage: TTelegramMessageObj);
 var
-  S: String;
+  S, O: String;
 begin
   if CurrentIsSimpleUser then
     Exit;
   RequestWhenAnswer:=True;
   S:=ExtractDelimited(2, AMessage.Text, [' ']);
+  O:=ExtractDelimited(3, AMessage.Text, [' ']);
   if S<>EmptyStr then
-    DoStat(S)
+    DoStat(S, O)
   else
     SendStatInlineKeyboard();
 end;
@@ -423,7 +467,7 @@ begin
   RequestWhenAnswer:=True;
   S:=ExtractDelimited(2, AMessage.Text, [' ']);
   if S<>EmptyStr then
-     DoStat(S, True)
+     DoStat(S, '', True)
   else
     SendStatInlineKeyboard(True);
 end;
@@ -447,7 +491,7 @@ var
 begin
   ReplyMarkup:=TReplyMarkup.Create;
   try
-    ReplyMarkup.InlineKeyBoard:=CreateInlineKeyboardStat(SendFile);
+    ReplyMarkup.InlineKeyBoard:=CreateInlineKeyboardStat(Date, SendFile);
     RequestWhenAnswer:=True;
     sendMessage(str_SlctSttstcs_line1+LineEnding+str_SlctSttstcs_line2+LineEnding+
       str_SlctSttstcs_line3+LineEnding+str_SlctSttstcs_line4, pmHTML, True, ReplyMarkup);
@@ -471,33 +515,78 @@ begin
       FBrookAction.StatLogger.Log(['', '', '', '', '', UpdateTypeAliases[UpdateType], '"'+EscMsg+'"'])
 end;
 
-function TWebhookBot.CreateInlineKeyboardRate: TJSONArray;
+function TWebhookBot.CreateInlineKeyboardRate: TInlineKeyboard;
 var
   btns: TInlineKeyboardButtons;
   btn: TInlineKeyboardButton;
 begin
-  btns:=TInlineKeyboardButtons.Create;
+  Result:=TInlineKeyboard.Create;
+  btns:=Result.Add;
   btn:=TInlineKeyboardButton.Create(str_Rate);
   btn.url:=s_StoreBotRate+BotUsername;
   btns.Add(btn);
-  Result:=TJSONArray.Create;
-  Result.Add(btns);
 end;
 
-function TWebhookBot.CreateInlineKeyboardStat(SendFile: Boolean): TJSONArray;
+function TWebhookBot.CreateInlineKeyboardStat(ADate: TDate): TInlineKeyboard;
 var
   btns: TInlineKeyboardButtons;
-  FileApp: String;
+  S: String;
+begin
+  Result:=TInlineKeyboard.Create;
+  btns:=Result.Add;
+  DateTimeToString(S, StatDateFormat, ADate);
+  btns.AddButtons([str_Today+' 🔃', s_GetStat+' '+s_Today, str_Yesterday,
+    s_GetStat+' '+s_Yesterday, str_Browse, s_GetStat+' '+S+' '+'0']);
+end;
+
+function TWebhookBot.CreateInlineKeyboardStat(ADate: TDate; SendFile: Boolean
+  ): TInlineKeyboard;
 begin
   if SendFile then
-    FileApp:='File'
+    Result:=CreateInlineKeyboardStatFile
   else
-    FileApp:='';
-  btns:=TInlineKeyboardButtons.Create;
-  btns.AddButtons([str_Today+' 🔃', s_GetStat+FileApp+' '+s_Today,
-    str_Yesterday, s_GetStat+FileApp+' '+s_Yesterday]);
-  Result:=TJSONArray.Create;
-  Result.Add(btns);
+    Result:=CreateInlineKeyboardStat(ADate);
+end;
+
+function TWebhookBot.CreateInlineKeyboardStatFile: TInlineKeyboard;
+var
+  btns: TInlineKeyboardButtons;
+begin
+  Result:=TInlineKeyboard.Create;
+  btns:=Result.Add;
+  btns.AddButtons([str_Today+' 🔃', s_GetStat+'File'+' '+s_Today, str_Yesterday,
+    s_GetStat+'File'+' '+s_Yesterday]);
+end;
+
+function TWebhookBot.CreateInlineKeyboardStat(ADate: TDate; Len: Integer;
+  Offset: Integer; Step: Integer): TInlineKeyboard;
+var
+  PrevDate, NextDate, SDate: String;
+  btns: TInlineKeyboardButtons;
+  i: Integer;
+begin
+  Result:=TInlineKeyboard.Create;
+  if Len=0 then
+    Exit;
+  DateTimeToString(PrevDate, StatDateFormat, ADate-1);
+  DateTimeToString(NextDate, StatDateFormat, ADate+1);
+  btns:=Result.Add;
+  DateTimeToString(SDate, StatDateFormat, ADate);
+  if Offset>0 then
+  begin
+    btns.AddButton('<<', s_GetStat+' '+ SDate+' '+IntToStr(0));
+    i:=Offset-Step;
+    if i<0 then
+      i:=0;
+    btns.AddButton('<', s_GetStat+' '+SDate+' '+IntToStr(i));
+  end;
+  if Offset+Step<Len then
+  begin
+    btns.AddButton('>', s_GetStat+' '+SDate+' '+IntToStr(Offset+Step));
+    btns.AddButton('>>', s_GetStat+' '+SDate+' '+IntToStr(Len-Step));
+  end;
+  Result.Add.AddButtons([str_Today+' 🔃', s_GetStat+' '+s_Today,
+    str_PrevDay, s_GetStat+' '+PrevDate+' '+'0', str_NextDay, s_GetStat+' '+NextDate+' '+'0']);
 end;
 
 procedure TWebhookBot.DoReceiveDeepLinking(const AParameter: String);
