@@ -160,6 +160,7 @@ resourcestring
   str_Rate='Rate';
   str_RateText='Please leave feedback on "Storebot" if you like our bot!';
   str_Browse='Browse';
+  str_StatParseError='Stat line parser error';
 
 
 const
@@ -208,13 +209,17 @@ var
   l: Integer;
 begin
   Ss:=TStringList.Create;
-  l:=ExtractStrings([';'], [' '], PChar(S), Ss, True);
-  if l<>8 then
-    Result:='Stat line parser error'
-  else
-    Result:=Ss[0]+'; '+'['+Ss[1]+'](tg://user?id='+Ss[1]+') '+
-      MarkdownEscape(Ss[2]+' {'+Ss[3]+' '+Ss[4]+'}')+ ' '+
-      MarkdownEscape(Ss[5])+' <'+MarkdownEscape(Ss[6])+'> '+MarkdownEscape(Ss[7]);
+  try
+    l:=ExtractStrings([';'], [' '], PChar(S), Ss, True);
+    if l<>8 then
+      Result:=str_StatParseError
+    else
+      Result:=Ss[0]+'; '+'['+Ss[1]+'](tg://user?id='+Ss[1]+') '+
+        MarkdownEscape(Ss[2]+' {'+Ss[3]+' '+Ss[4]+'}')+ ' '+
+        MarkdownEscape(Ss[5])+' <'+MarkdownEscape(Ss[6])+'> '+MarkdownEscape(Ss[7]);
+  except
+    Result:=str_StatParseError
+  end;
   Ss.Free;
 end;
 
@@ -509,10 +514,15 @@ begin
     SetLength(EscMsg, 150);
   if CurrentIsSimpleUser then
     if Assigned(CurrentUser)then
-      FBrookAction.StatLogger.Log([IntToStr(CurrentChatId), '@'+CurrentUser.Username, CurrentUser.First_name, CurrentUser.Last_name,
-        CurrentUser.Language_code, UpdateTypeAliases[UpdateType], '"'+StringToJSONString(EscMsg)+'"'])
-    else
-      FBrookAction.StatLogger.Log(['', '', '', '', '', UpdateTypeAliases[UpdateType], '"'+EscMsg+'"'])
+      FBrookAction.StatLogger.Log([IntToStr(CurrentChatId), '@'+CurrentUser.Username,
+        CurrentUser.First_name, CurrentUser.Last_name, CurrentUser.Language_code,
+        UpdateTypeAliases[UpdateType], '"'+StringToJSONString(EscMsg)+'"'])
+    else begin
+      if Assigned(CurrentChat) then
+        FBrookAction.StatLogger.Log([IntToStr(CurrentChatId), '@'+CurrentChat.Username,
+          CurrentChat.First_name, CurrentChat.Last_name, '-', UpdateTypeAliases[UpdateType],
+          '"'+StringToJSONString(EscMsg)+'"'])
+    end;
 end;
 
 function TWebhookBot.CreateInlineKeyboardRate: TInlineKeyboard;
