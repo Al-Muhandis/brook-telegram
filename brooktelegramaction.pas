@@ -137,7 +137,7 @@ function FormatStatRec(const S: String): String;
 implementation
 { Please define ni18n (No i18n) for excluding translate unit from uses and exclude i18n support }
 uses jsonparser, BrookHttpConsts, strutils, BrookApplication, jsonscanner{$IFNDEF ni18n},
-  Translations{$ENDIF}, tgutils;
+  Translations{$ENDIF}, tgutils, LazUTF8;
 
 // Please use i18n for localization *** Пожалуйста, используйте i18n для локализации
 resourcestring
@@ -216,7 +216,7 @@ begin
     else
       Result:=Ss[0]+'; '+'['+Ss[1]+'](tg://user?id='+Ss[1]+') '+
         MarkdownEscape(Ss[2]+' {'+Ss[3]+' '+Ss[4]+'}')+ ' '+
-        MarkdownEscape(Ss[5])+' <'+MarkdownEscape(Ss[6])+'> '+MarkdownEscape(Ss[7]);
+        MarkdownEscape(Ss[5])+' <'+MarkdownEscape(Ss[6])+'> '+MarkdownEscape(JSONStringToString(Ss[7]));
   except
     Result:=str_StatParseError
   end;
@@ -509,9 +509,7 @@ procedure TWebhookBot.StatLog(const AMessage: String; UpdateType: TUpdateType);
 var
   EscMsg: String;
 begin
-  EscMsg:=AMessage;
-  if Length(EscMsg)>150 then
-    SetLength(EscMsg, 150);
+  EscMsg:=UTF8LeftStr(AMessage, 150);
   if CurrentIsSimpleUser then
     if Assigned(CurrentUser)then
       FBrookAction.StatLogger.Log([IntToStr(CurrentChatId), '@'+CurrentUser.Username,
