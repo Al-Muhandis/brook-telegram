@@ -69,6 +69,7 @@ type
     FFeedbackThanks: String;
     FOnRate: TRateEvent;
     FOnReceiveDeepLinking: TReceiveDeepLinkEvent;
+    FPublicStat: Boolean;
     FStartText: String;
     FUserPermissions: TStringList;
     procedure DoCallbackQueryStat(ACallbackQuery: TCallbackQueryObj; SendFile: Boolean = False);
@@ -80,6 +81,7 @@ type
     procedure SetHelpText(AValue: String);
     procedure SetOnRate(AValue: TRateEvent);
     procedure SetOnReceiveDeepLinking(AValue: TReceiveDeepLinkEvent);
+    procedure SetPublicStat(AValue: Boolean);
     procedure SetStartText(AValue: String);
     procedure SetUserStatus(ID: Int64; AValue: TUserStatus);
     procedure TlgrmStartHandler({%H-}ASender: TObject; const {%H-}ACommand: String;
@@ -129,6 +131,7 @@ type
     property UserStatus [ID: Int64]: TUserStatus read GetUserStatus write SetUserStatus;
     property OnRate: TRateEvent read FOnRate write SetOnRate;
     property OnReceiveDeepLinking: TReceiveDeepLinkEvent read FOnReceiveDeepLinking write SetOnReceiveDeepLinking;
+    property PublicStat: Boolean read FPublicStat write SetPublicStat;
   end;
 
 function ExtractArgPart(const ASource, ACommand: String): String;
@@ -249,6 +252,12 @@ begin
   FOnReceiveDeepLinking:=AValue;
 end;
 
+procedure TWebhookBot.SetPublicStat(AValue: Boolean);
+begin
+  if FPublicStat=AValue then Exit;
+  FPublicStat:=AValue;
+end;
+
 procedure TWebhookBot.SetStartText(AValue: String);
 begin
   if FStartText=AValue then Exit;
@@ -272,13 +281,16 @@ var
   StatFile: TStringList;
   Msg, SDate: String;
   AFileName: String;
-  i: Integer;
+  i, c: Integer;
+  AnID: Int64;
   ReplyMarkup: TReplyMarkup;
+  IDs: TIntegerHashSet;
 const
   Step=20;
 begin
   if CurrentIsSimpleUser then
-    Exit;
+    if not PublicStat or Scroll then
+      Exit;
   ReplyMarkup:=TReplyMarkup.Create;
   try
     StatFile:=TStringList.Create;
@@ -294,12 +306,22 @@ begin
           begin
             ReplyMarkup.InlineKeyBoard:=CreateInlineKeyboardStat(ADate);
             Msg:='*Statistics for '+SDate+'*'+LineEnding;
-            for i:=StatFile.Count-1 downto StatFile.Count-15 do
+{ Simple calculation of statistics: the number of unique users per day and
+            the number of received events from users (private chats) }
+            IDs:=TIntegerHashSet.create;
+            c:=0;
+            for i:=StatFile.Count-1 downto 0 do
             begin
-              if i<0 then
-                Break;
-              Msg+=FormatStatRec(StatFile[i])+LineEnding;
+              AnID:=StrToInt64Def(ExtractDelimited(2, StatFile[i], [';']), 0);
+              if AnID>0 then
+              begin
+                Inc(c);
+                IDs.insert(AnID);
+              end;
             end;
+            Msg+=LineEnding+'Unique users: '+IntToStr(IDs.size)+', user events: '+
+              IntToStr(c);
+            IDs.Free;
           end
           else begin
             ReplyMarkup.InlineKeyBoard:=CreateInlineKeyboardStat(ADate, StatFile.Count, Offset,
@@ -451,7 +473,7 @@ procedure TWebhookBot.TlgrmStatHandler(ASender: TObject;
 var
   S, O: String;
 begin
-  if CurrentIsSimpleUser then
+  if not PublicStat and CurrentIsSimpleUser then
     Exit;
   RequestWhenAnswer:=True;
   S:=ExtractDelimited(2, AMessage.Text, [' ']);
@@ -509,18 +531,19 @@ procedure TWebhookBot.StatLog(const AMessage: String; UpdateType: TUpdateType);
 var
   EscMsg: String;
 begin
+  if not CurrentIsSimpleUser then
+    Exit;
   EscMsg:=UTF8LeftStr(AMessage, 150);
-  if CurrentIsSimpleUser then
-    if Assigned(CurrentUser)then
-      FBrookAction.StatLogger.Log([IntToStr(CurrentChatId), '@'+CurrentUser.Username,
-        CurrentUser.First_name, CurrentUser.Last_name, CurrentUser.Language_code,
-        UpdateTypeAliases[UpdateType], '"'+StringToJSONString(EscMsg)+'"'])
-    else begin
-      if Assigned(CurrentChat) then
-        FBrookAction.StatLogger.Log([IntToStr(CurrentChatId), '@'+CurrentChat.Username,
-          CurrentChat.First_name, CurrentChat.Last_name, '-', UpdateTypeAliases[UpdateType],
-          '"'+StringToJSONString(EscMsg)+'"'])
-    end;
+  if Assigned(CurrentUser)then
+    FBrookAction.StatLogger.Log([IntToStr(CurrentChatId), '@'+CurrentUser.Username,
+      CurrentUser.First_name, CurrentUser.Last_name, CurrentUser.Language_code,
+      UpdateTypeAliases[UpdateType], '"'+StringToJSONString(EscMsg)+'"'])
+  else begin
+    if Assigned(CurrentChat) then
+      FBrookAction.StatLogger.Log([IntToStr(CurrentChatId), '@'+CurrentChat.Username,
+        CurrentChat.First_name, CurrentChat.Last_name, '-', UpdateTypeAliases[UpdateType],
+        '"'+StringToJSONString(EscMsg)+'"'])
+  end;
 end;
 
 function TWebhookBot.CreateInlineKeyboardRate: TInlineKeyboard;
@@ -538,13 +561,23 @@ end;
 function TWebhookBot.CreateInlineKeyboardStat(ADate: TDate): TInlineKeyboard;
 var
   btns: TInlineKeyboardButtons;
-  S: String;
+  S, PrevDate, NextDate: String;
 begin
+  DateTimeToString(PrevDate, StatDateFormat, ADate-1);
+  DateTimeToString(NextDate, StatDateFormat, ADate+1);
   Result:=TInlineKeyboard.Create;
   btns:=Result.Add;
   DateTimeToString(S, StatDateFormat, ADate);
-  btns.AddButtons([str_Today+' 🔃', s_GetStat+' '+s_Today, str_Yesterday,
-    s_GetStat+' '+s_Yesterday, str_Browse, s_GetStat+' '+S+' '+'0']);
+  if not CurrentIsSimpleUser then
+  begin
+    btns.AddButtons([str_Today+' 🔃', s_GetStat+' '+s_Today, str_Yesterday,
+      s_GetStat+' '+s_Yesterday, str_Browse, s_GetStat+' '+S+' '+'0']);
+    btns:=Result.Add;
+    btns.AddButtons([str_PrevDay, s_GetStat+' '+PrevDate, str_NextDay, s_GetStat+' '+NextDate]);
+  end
+  else
+    btns.AddButtons([str_Today+' 🔃', s_GetStat+' '+s_Today,
+      str_PrevDay, s_GetStat+' '+PrevDate, str_NextDay, s_GetStat+' '+NextDate])
 end;
 
 function TWebhookBot.CreateInlineKeyboardStat(ADate: TDate; SendFile: Boolean
@@ -619,6 +652,7 @@ begin
   CommandHandlers[cmd_Rate]:=    @TlgrmRate;
   CommandHandlers[cmd_Stat]:=    @TlgrmStatHandler;
   CommandHandlers[cmd_StatF]:=   @TlgrmStatFHandler;
+  FPublicStat:=False;
 end;
 
 destructor TWebhookBot.Destroy;
@@ -651,7 +685,7 @@ var
 begin
   AHandled:=False;
   inherited DoReceiveCallbackQuery(ACallback);
-  if not CurrentIsSimpleUser then
+  if not CurrentIsSimpleUser or PublicStat then
   begin
     if AnsiStartsStr(s_GetStat+' ', ACallback.Data) then
     begin
@@ -663,9 +697,8 @@ begin
       AHandled:=True;
       DoCallbackQueryStat(ACallback, True);
     end;
-  end
-  else
-    StatLog(ACallback.Data, utCallbackQuery);
+  end;
+  StatLog(ACallback.Data, utCallbackQuery);
   if not AHandled then
     FBrookAction.BotCallbackQuery(ACallback);
 end;
