@@ -21,6 +21,7 @@ type
 
   TWebhookAction = class(TBrookAction)
   private
+    FLogDebug: Boolean;
     FLogger: TEventLog;
     FOnCallbackQuery: TCallbackEvent;
     FOnUpdateMessage: TMessageEvent;
@@ -32,6 +33,7 @@ type
     procedure BotTerminateHandler({%H-}ASender: TObject; const {%H-}ACommand: String;
       {%H-}AMessage: TTelegramMessageObj);
     procedure SetBot({%H-}AValue: TWebhookBot);
+    procedure SetLogDebug(AValue: Boolean);
     procedure SetLogger(AValue: TEventLog);
     procedure SetOnCallbackQuery(AValue: TCallbackEvent);
     procedure SetOnUpdateMessage(AValue: TMessageEvent);
@@ -58,6 +60,7 @@ type
     property StatLogger: TtgStatLog read FStatLogger write SetStatLogger;
     property Logger: TEventLog read FLogger write SetLogger;
     property Bot: TWebhookBot read FBot write SetBot;
+    property LogDebug: Boolean read FLogDebug write SetLogDebug;
   end;
 
   { TWebhookBot }
@@ -113,9 +116,6 @@ type
     procedure DoReceiveChosenInlineResult(
       AChosenInlineResult: TTelegramChosenInlineResultObj); override;
     procedure DoReceiveInlineQuery(AnInlineQuery: TTelegramInlineQueryObj); override;
-    procedure DebugMessage(const Msg: String); override;
-    procedure InfoMessage(const Msg: String); override;
-    procedure ErrorMessage(const Msg: String); override;
     property BrookAction: TWebhookAction read FBrookAction write SetBrookAction;
     function IsBanned(ChatID: Int64): Boolean; override;       
     function IsSimpleUser(ChatID: Int64): Boolean; override;
@@ -723,24 +723,6 @@ begin
   StatLog(AnInlineQuery.Query, utInlineQuery);
 end;
 
-procedure TWebhookBot.DebugMessage(const Msg: String);
-begin
-  inherited DebugMessage(Msg);
-  FBrookAction.LogMessage(Self, etDebug, Msg);
-end;
-
-procedure TWebhookBot.InfoMessage(const Msg: String);
-begin
-  inherited InfoMessage(Msg);                 
-  FBrookAction.LogMessage(Self, etInfo, Msg);
-end;
-
-procedure TWebhookBot.ErrorMessage(const Msg: String);
-begin
-  inherited ErrorMessage(Msg);
-  FBrookAction.LogMessage(Self, etError, Msg);
-end;
-
 function TWebhookBot.IsBanned(ChatID: Int64): Boolean;
 begin
   Result:=FUserPermissions.Values[IntToStr(ChatID)]='b'
@@ -823,6 +805,12 @@ begin
 // todo Does It need a code here? Can it be so?
 end;
 
+procedure TWebhookAction.SetLogDebug(AValue: Boolean);
+begin
+  if FLogDebug=AValue then Exit;
+  FLogDebug:=AValue;
+end;
+
 procedure TWebhookAction.SetLogger(AValue: TEventLog);
 begin
   if FLogger=AValue then Exit;
@@ -877,6 +865,8 @@ end;
 
 procedure TWebhookAction.LogMessage(ASender: TObject; EventType: TEventType; const Msg: String);
 begin
+  if not FLogDebug and (EventType=etDebug) then
+    Exit;
   if Assigned(FLogger) then
     Logger.Log(EventType, Msg);
 end;
@@ -895,6 +885,7 @@ end;
 constructor TWebhookAction.Create;
 begin
   inherited Create;
+  FLogDebug:=False;
   FStatLogger:=TtgStatLog.Create(nil);
   FStatLogger.Active:=False;
   FStatLogger.TimeStampFormat:='hh:nn:ss';
@@ -906,8 +897,8 @@ end;
 
 destructor TWebhookAction.Destroy;
 begin
-  FBot.Free;
-  FStatLogger.Free;
+  FreeAndNil(FBot);
+  FreeAndNil(FStatLogger);
   inherited Destroy;
 end;
 
@@ -917,7 +908,7 @@ var
   lParser: TJSONParser;
   AnUpdate: TTelegramUpdateObj;
 begin
-  Msg:={$IFNDEF bf30}HttpRequest{$ELSE}TheRequest{$ENDIF}.Content;
+  Msg:=HttpRequest.Content;
   LogMessage(Self, etDebug, 'Recieve the update (Webhook): '+Msg);
   if Msg<>EmptyStr then
   begin
@@ -927,6 +918,12 @@ begin
         AnUpdate :=
           TTelegramUpdateObj.CreateFromJSONObject(lParser.Parse as TJSONObject) as TTelegramUpdateObj;
       except
+        on E:Exception do
+        begin
+          LogMessage(Self, etError, 'Error while parse json string ('+E.ClassName+': '+E.Message+
+            '): '+Msg);
+          Exit;
+        end;
       end;
     finally
       lParser.Free;
@@ -934,10 +931,12 @@ begin
     if Assigned(AnUpdate) then
     begin
       Bot.DoReceiveUpdate(AnUpdate);
-      {$IFNDEF bf30}HttpResponse{$ELSE}TheResponse{$ENDIF}.ContentType:=BROOK_HTTP_CONTENT_TYPE_APP_JSON;
+      HttpResponse.ContentType:=BROOK_HTTP_CONTENT_TYPE_APP_JSON;
       Write(FBot.RequestBody);
     end;
-  end;
+  end
+  else
+    LogMessage(Self, etError, 'POST data Content of HTTP request is empty!');
 end;
 
 end.
