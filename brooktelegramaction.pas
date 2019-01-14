@@ -5,7 +5,7 @@ unit brooktelegramaction;
 interface
 
 uses
-  BrookAction, tgtypes, tgsendertypes, sysutils, classes, tgstatlog, eventlog,
+  BrookAction, tgtypes, tgsendertypes, sysutils, classes, tgstatlog, eventlog, ghashmap,
   fpjson;
 
 type
@@ -16,6 +16,8 @@ type
 
   TRateEvent = procedure (var RateText: String; ReplyMarkup: TReplyMarkup) of object;
   TReceiveDeepLinkEvent = procedure (const AParameter: String) of object;
+
+  TCallbackHandlersMap = specialize TStringHashMap<TCallbackEvent>;
 
   { TWebhookAction }
 
@@ -42,7 +44,7 @@ type
     procedure SendStatLog(ADate: TDate = 0; AReplyMarkup: TReplyMarkup = nil);
     procedure LogMessage({%H-}ASender: TObject; EventType: TEventType; const Msg: String);
   protected
-    procedure BotCallbackQuery(ACallback: TCallbackQueryObj); virtual;
+    procedure BotCallbackQuery(ACallback: TCallbackQueryObj); virtual; deprecated;
     procedure BotMessageHandler(AMessage: TTelegramMessageObj); virtual;
     procedure EditOrSendMessage(const AMessage: String; AParseMode: TParseMode = pmDefault;
       ReplyMarkup: TReplyMarkup = nil; TryEdit: Boolean = False);
@@ -66,6 +68,7 @@ type
   { TWebhookBot }
   TWebhookBot = class(TTelegramSender)
   private
+    FCallbackHandlers: TCallbackHandlersMap;
     FHelpText: String;
     FBrookAction: TWebhookAction;
     FFeedbackText: String;
@@ -79,8 +82,11 @@ type
     procedure DoGetStat(ADate: TDate = 0; Scroll: Boolean = False; Offset: Integer = 0);
     procedure DoGetStatFile(ADate: TDate = 0);
     procedure DoStat(const SDate: String; const SOffset: String = ''; SendFile: Boolean = false);
+    function GetCallbackHandlers(const Command: String): TCallbackEvent;
     function GetUserStatus(ID: Int64): TUserStatus;
     procedure SetBrookAction(AValue: TWebhookAction);
+    procedure SetCallbackHandlers(const Command: String; AValue: TCallbackEvent
+      );
     procedure SetHelpText(AValue: String);
     procedure SetOnRate(AValue: TRateEvent);
     procedure SetOnReceiveDeepLinking(AValue: TReceiveDeepLinkEvent);
@@ -124,6 +130,8 @@ type
     constructor Create(const AToken: String; AWebhookAction: TWebhookAction);
     destructor Destroy; override;
     procedure LoadUserStatusValues(AStrings: TStrings);
+    property CallbackHandlers [const Command: String]: TCallbackEvent read GetCallbackHandlers
+      write SetCallbackHandlers;  // It can create command handlers by assigning their to array elements
     property StartText: String read FStartText write SetStartText; // Text for /start command reply
     property HelpText: String read FHelpText write SetHelpText;  // Text for /help command reply
     property FeedbackText: String read FFeedbackText write FFeedbackText;
@@ -232,6 +240,12 @@ procedure TWebhookBot.SetBrookAction(AValue: TWebhookAction);
 begin
   if FBrookAction=AValue then Exit;
   FBrookAction:=AValue;
+end;
+
+procedure TWebhookBot.SetCallbackHandlers(const Command: String;
+  AValue: TCallbackEvent);
+begin
+  FCallbackHandlers.Items[Command]:=AValue;
 end;
 
 procedure TWebhookBot.SetHelpText(AValue: String);
@@ -394,6 +408,11 @@ begin
     DoGetStat(FDate, True, StrToIntDef(SOffset, 0));
 end;
 
+function TWebhookBot.GetCallbackHandlers(const Command: String): TCallbackEvent;
+begin
+    Result:=FCallbackHandlers.Items[Command];
+end;
+
 function TWebhookBot.GetUserStatus(ID: Int64): TUserStatus;
 begin
   Result:=AnsiCharToUserStatus(FUserPermissions.Values[IntToStr(ID)]);
@@ -417,7 +436,7 @@ end;
 procedure TWebhookBot.TlgrmStartHandler(ASender: TObject;
   const ACommand: String; AMessage: TTelegramMessageObj);
 begin
-  if not AMessage.Text.Contains(' ') then
+  if not {%H-}AMessage.Text.Contains(' ') then
   begin
     RequestWhenAnswer:=True;
     sendMessage(FStartText, pmMarkdown);
@@ -534,15 +553,20 @@ begin
   if not CurrentIsSimpleUser then
     Exit;
   EscMsg:=UTF8LeftStr(AMessage, 150);
-  if Assigned(CurrentUser)then
-    FBrookAction.StatLogger.Log([IntToStr(CurrentChatId), '@'+CurrentUser.Username,
-      CurrentUser.First_name, CurrentUser.Last_name, CurrentUser.Language_code,
-      UpdateTypeAliases[UpdateType], '"'+StringToJSONString(EscMsg)+'"'])
-  else begin
-    if Assigned(CurrentChat) then
-      FBrookAction.StatLogger.Log([IntToStr(CurrentChatId), '@'+CurrentChat.Username,
-        CurrentChat.First_name, CurrentChat.Last_name, '-', UpdateTypeAliases[UpdateType],
-        '"'+StringToJSONString(EscMsg)+'"'])
+  try
+    if Assigned(CurrentUser)then
+      FBrookAction.StatLogger.Log([IntToStr(CurrentChatId), '@'+CurrentUser.Username,
+        CurrentUser.First_name, CurrentUser.Last_name, CurrentUser.Language_code,
+        UpdateTypeAliases[UpdateType], '"'+StringToJSONString(EscMsg)+'"'])
+    else begin
+      if Assigned(CurrentChat) then
+        FBrookAction.StatLogger.Log([IntToStr(CurrentChatId), '@'+CurrentChat.Username,
+          CurrentChat.First_name, CurrentChat.Last_name, '-', UpdateTypeAliases[UpdateType],
+          '"'+StringToJSONString(EscMsg)+'"'])
+    end;
+  except
+    on E: Exception do
+      ErrorMessage('Can''t write to log StatLogger. '+E.ClassName+': '+E.Message);
   end;
 end;
 
@@ -652,11 +676,13 @@ begin
   CommandHandlers[cmd_Rate]:=    @TlgrmRate;
   CommandHandlers[cmd_Stat]:=    @TlgrmStatHandler;
   CommandHandlers[cmd_StatF]:=   @TlgrmStatFHandler;
+  FCallbackHandlers:=TCallbackHandlersMap.create;
   FPublicStat:=False;
 end;
 
 destructor TWebhookBot.Destroy;
 begin
+  FCallbackHandlers.Free;
   FUserPermissions.Free;
   inherited Destroy;
 end;
@@ -681,7 +707,9 @@ end;
 
 procedure TWebhookBot.DoReceiveCallbackQuery(ACallback: TCallbackQueryObj);
 var
-  AHandled: Boolean;
+  AHandled, AFlag: Boolean;
+  ACommand: String;
+  H: TCallbackEvent;
 begin
   AHandled:=False;
   inherited DoReceiveCallbackQuery(ACallback);
@@ -700,7 +728,21 @@ begin
   end;
   StatLog(ACallback.Data, utCallbackQuery);
   if not AHandled then
-    FBrookAction.BotCallbackQuery(ACallback);
+  begin
+    AFlag:=RequestWhenAnswer;
+    ACommand:=ExtractWord(1, ACallback.Data, [' ']);
+    if FCallbackHandlers.contains(ACommand) then
+    begin
+      H:=FCallbackHandlers.Items[ACommand];
+      H(Self, ACallback);
+      RequestWhenAnswer:=False;
+      answerCallbackQuery(ACallback.ID);
+      RequestWhenAnswer:=AFlag;
+      AHandled:=True;
+    end;
+    if not AHandled then
+      FBrookAction.BotCallbackQuery(ACallback);
+  end;
 end;
 
 procedure TWebhookBot.DoReceiveChannelPost(AChannelPost: TTelegramMessageObj);
