@@ -68,6 +68,7 @@ type
   { TWebhookBot }
   TWebhookBot = class(TTelegramSender)
   private
+    FCallbackAnswered: Boolean;
     FCallbackHandlers: TCallbackHandlersMap;
     FHelpText: String;
     FBrookAction: TWebhookAction;
@@ -127,6 +128,8 @@ type
     function IsSimpleUser(ChatID: Int64): Boolean; override;
     procedure SetLanguage(const ALang: String); override;
   public
+    function answerCallbackQuery(const CallbackQueryId: String; const Text: String=''; ShowAlert: Boolean=False;
+      const Url: String=''; CacheTime: Integer=0): Boolean; override;
     constructor Create(const AToken: String; AWebhookAction: TWebhookAction);
     destructor Destroy; override;
     procedure LoadUserStatusValues(AStrings: TStrings);
@@ -436,6 +439,7 @@ end;
 procedure TWebhookBot.TlgrmStartHandler(ASender: TObject;
   const ACommand: String; AMessage: TTelegramMessageObj);
 begin
+  UpdateProcessed:=True;
   if not {%H-}AMessage.Text.Contains(' ') then
   begin
     RequestWhenAnswer:=True;
@@ -448,6 +452,7 @@ end;
 procedure TWebhookBot.TlgrmHelpHandler(ASender: TObject;
   const ACommand: String; AMessage: TTelegramMessageObj);
 begin
+  UpdateProcessed:=True;
   RequestWhenAnswer:=True;
   sendMessage(FHelpText, pmMarkdown);
 end;
@@ -678,6 +683,7 @@ begin
   CommandHandlers[cmd_StatF]:=   @TlgrmStatFHandler;
   FCallbackHandlers:=TCallbackHandlersMap.create;
   FPublicStat:=False;
+  FCallbackAnswered:=False;
 end;
 
 destructor TWebhookBot.Destroy;
@@ -712,6 +718,7 @@ var
   H: TCallbackEvent;
 begin
   AHandled:=False;
+  FCallbackAnswered:=False;
   inherited DoReceiveCallbackQuery(ACallback);
   if not CurrentIsSimpleUser or PublicStat then
   begin
@@ -736,7 +743,8 @@ begin
       H:=FCallbackHandlers.Items[ACommand];
       H(Self, ACallback);
       RequestWhenAnswer:=False;
-      answerCallbackQuery(ACallback.ID);
+      if not FCallbackAnswered then
+        answerCallbackQuery(ACallback.ID); // if user do not call this in callback procedure
       RequestWhenAnswer:=AFlag;
       AHandled:=True;
     end;
@@ -780,6 +788,13 @@ procedure TWebhookBot.SetLanguage(const ALang: String);
 begin
   inherited SetLanguage(ALang);
   LangTranslate(ALang);
+end;
+
+function TWebhookBot.answerCallbackQuery(const CallbackQueryId: String; const Text: String; ShowAlert: Boolean;
+  const Url: String; CacheTime: Integer): Boolean;
+begin
+  Result:=inherited;
+  FCallbackAnswered:=True;
 end;
 
 procedure TWebhookBot.LoadUserStatusValues(AStrings: TStrings);
