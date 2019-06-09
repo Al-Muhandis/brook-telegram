@@ -28,7 +28,7 @@ type
 
 implementation
 
-uses BrookException, sysutils, brokers, tgsendertypes, tgutils;
+uses BrookException, sysutils, brokers, tgsendertypes, tgutils, tgstatlog;
 
 { Handler for the "TestCmd" telegram command (It is called through /TestCmd in chat with bot) }
 procedure TMyAction.TlgrmTestCmdHandler(ASender: TObject;
@@ -69,8 +69,8 @@ begin
   { This isnt real telegram token! Please get token from
   https://core.telegram.org/bots#botfather }
   Token:='123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11';
-  StartText:='Hi! It is simplest HelloBot based on brookframework and fp-telegram!';
-  HelpText:=
+  Bot.StartText:='Hi! It is simplest HelloBot based on brookframework and fp-telegram!';
+  Bot.HelpText:=
     'This help text for the bot... See code at https://github.com/Al-Muhandis/brook-telegram '+
     'and  https://github.com/Al-Muhandis/fp-telegram';
   { Custom command definition example }
@@ -84,7 +84,7 @@ begin
   Bot.UserStatus[1234567890]:=usAdmin;  // You can comment out this if you do not need this functionality
   { You can do not create this log. If its value is nil,
   then the logging just will not be maintained }
-  StatLogger.Paused:=False; // run statistics log
+  Bot.StatLogger.Paused:=False; // run statistics log
   Logger:=BLogger;
   Bot.UpdateLogger:=TtgStatLog.Create(nil);
   Bot.UpdateLogger.FilePrefix:='stat';

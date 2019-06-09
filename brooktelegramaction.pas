@@ -5,8 +5,8 @@ unit brooktelegramaction;
 interface
 
 uses
-  BrookAction, tgtypes, tgsendertypes, sysutils, classes, tgstatlog, eventlog, ghashmap,
-  fpjson;
+  BrookAction, tgtypes, tgsendertypes, sysutils, classes, tgstatlog, eventlog,
+  ghashmap, fpjson;
 
 type
 
@@ -27,7 +27,6 @@ type
     FLogger: TEventLog;
     FOnCallbackQuery: TCallbackEvent;
     FOnUpdateMessage: TMessageEvent;
-    FStatLogger: TtgStatLog;
     FToken: String;
     FBot: TWebhookBot;
     procedure BotSetCommandReply({%H-}ASender: TObject; const ACommand: String;
@@ -39,15 +38,14 @@ type
     procedure SetLogger(AValue: TEventLog);
     procedure SetOnCallbackQuery(AValue: TCallbackEvent);
     procedure SetOnUpdateMessage(AValue: TMessageEvent);
-    procedure SetStatLogger(AValue: TtgStatLog);
     procedure SetToken(AValue: String);
-    procedure SendStatLog(ADate: TDate = 0; AReplyMarkup: TReplyMarkup = nil);
     procedure LogMessage({%H-}ASender: TObject; EventType: TEventType; const Msg: String);
   protected
     procedure BotCallbackQuery(ACallback: TCallbackQueryObj); virtual; deprecated;
     procedure BotMessageHandler(AMessage: TTelegramMessageObj); virtual;
+    { Use Bot.EditOrSendMessage instead... }
     procedure EditOrSendMessage(const AMessage: String; AParseMode: TParseMode = pmDefault;
-      ReplyMarkup: TReplyMarkup = nil; TryEdit: Boolean = False);
+      ReplyMarkup: TReplyMarkup = nil; TryEdit: Boolean = False); deprecated;
     function IsSimpleUser: Boolean;
     function IsBanned: Boolean;
     procedure SaveFeedback(AFrom: TTelegramUserObj; AMessage: String); virtual; abstract;
@@ -59,7 +57,6 @@ type
     property Token: String read FToken write SetToken;
     property OnCallbackQuery: TCallbackEvent read FOnCallbackQuery write SetOnCallbackQuery;
     property OnUpdateMessage: TMessageEvent read FOnUpdateMessage write SetOnUpdateMessage;
-    property StatLogger: TtgStatLog read FStatLogger write SetStatLogger;
     property Logger: TEventLog read FLogger write SetLogger;
     property Bot: TWebhookBot read FBot write SetBot;
     property LogDebug: Boolean read FLogDebug write SetLogDebug;
@@ -78,13 +75,22 @@ type
     FOnReceiveDeepLinking: TReceiveDeepLinkEvent;
     FPublicStat: Boolean;
     FStartText: String;
+    FStatLogger: TtgStatLog;
     FUserPermissions: TStringList;
+    procedure BrowseStatFile(aDate: TDate; var Msg: String; ReplyMarkup: TReplyMarkup; Offset: Integer);
+    procedure CalculateStat4Strings(aStatFile: TStrings; IDs: TIntegerHashSet;
+      var aEvents: Integer);
+    procedure CalculateStat4Strings(aFromDate, aToDate: TDate; out aUsers, aEvents: Integer);
     procedure DoCallbackQueryStat(ACallbackQuery: TCallbackQueryObj; SendFile: Boolean = False);
-    procedure DoGetStat(ADate: TDate = 0; Scroll: Boolean = False; Offset: Integer = 0);
+//    procedure DoGetStat(ADate: TDate = 0; Scroll: Boolean = False; Offset: Integer = 0);
+    procedure DoGetStat(aFromDate: TDate = 0; aToDate: TDate = 0; Scroll: Boolean = False; Offset: Integer = 0);
+    //procedure DoGetStatMonth(aDateInMonth: TDate);
+    procedure DoGetStatMonth(aYear, aMonth: Word);
     procedure DoGetStatFile(ADate: TDate = 0);
     procedure DoStat(const SDate: String; const SOffset: String = ''; SendFile: Boolean = false);
     function GetCallbackHandlers(const Command: String): TCallbackEvent;
     function GetUserStatus(ID: Int64): TUserStatus;
+    procedure SendStatLog(ADate: TDate = 0; AReplyMarkup: TReplyMarkup = nil);
     procedure SetBrookAction(AValue: TWebhookAction);
     procedure SetCallbackHandlers(const Command: String; AValue: TCallbackEvent
       );
@@ -93,6 +99,7 @@ type
     procedure SetOnReceiveDeepLinking(AValue: TReceiveDeepLinkEvent);
     procedure SetPublicStat(AValue: Boolean);
     procedure SetStartText(AValue: String);
+    procedure SetStatLogger(AValue: TtgStatLog);
     procedure SetUserStatus(ID: Int64; AValue: TUserStatus);
     procedure TlgrmStartHandler({%H-}ASender: TObject; const {%H-}ACommand: String;
       {%H-}AMessage: TTelegramMessageObj);
@@ -114,6 +121,7 @@ type
     function CreateInlineKeyboardStat(ADate: TDate): TInlineKeyboard;
     function CreateInlineKeyboardStat(ADate: TDate; SendFile: Boolean): TInlineKeyboard; overload;
     function CreateInlineKeyboardStatFile: TInlineKeyboard;
+    function CreateInlineKeyboardStatMonth(ADate: TDate): TInlineKeyboard;
     function CreateInlineKeyboardStat(ADate: TDate; Len: Integer; Offset: Integer = 0;
       Step: Integer = 20): TInlineKeyboard; overload;
     procedure DoReceiveDeepLinking(const AParameter: String);
@@ -132,6 +140,8 @@ type
       const Url: String=''; CacheTime: Integer=0): Boolean; override;
     constructor Create(const AToken: String; AWebhookAction: TWebhookAction);
     destructor Destroy; override;
+    procedure EditOrSendMessage(const AMessage: String; AParseMode: TParseMode = pmDefault;
+      ReplyMarkup: TReplyMarkup = nil; TryEdit: Boolean = False);
     procedure LoadUserStatusValues(AStrings: TStrings);
     property CallbackHandlers [const Command: String]: TCallbackEvent read GetCallbackHandlers
       write SetCallbackHandlers;  // It can create command handlers by assigning their to array elements
@@ -143,6 +153,7 @@ type
     property OnRate: TRateEvent read FOnRate write SetOnRate;
     property OnReceiveDeepLinking: TReceiveDeepLinkEvent read FOnReceiveDeepLinking write SetOnReceiveDeepLinking;
     property PublicStat: Boolean read FPublicStat write SetPublicStat;
+    property StatLogger: TtgStatLog read FStatLogger write SetStatLogger;
   end;
 
 function ExtractArgPart(const ASource, ACommand: String): String;
@@ -151,16 +162,16 @@ function FormatStatRec(const S: String): String;
 implementation
 { Please define ni18n (No i18n) for excluding translate unit from uses and exclude i18n support }
 uses jsonparser, BrookHttpConsts, strutils, BrookApplication, jsonscanner{$IFNDEF ni18n},
-  Translations{$ENDIF}, tgutils, LazUTF8;
+  Translations{$ENDIF}, tgutils, LazUTF8, dateutils;
 
 // Please use i18n for localization *** Пожалуйста, используйте i18n для локализации
 resourcestring
   str_FeedbackThanks='Thanks! %s Your message will be considered!'; // Спасибо, %s! Ваш сообщение будет обязательно рассмотрено!;
-  str_FeedbackText='Send us a wish, recommendation or bug report';  // Отправьте разработчику бота пожелание, рекомендацию, информацию об ошибке
+  str_FeedbackText='Send us your suggestions or bug reports please';  // Отправьте разработчику бота пожелание, рекомендацию, информацию об ошибке
   str_TxtRplyIsScsChngd='Text reply for command is succesfully changed!'; // Текст сообщения для команды успешно изменен
   str_BtApIsClsd='Bot app is closed';  // Приложение закрыто
   str_SttstcsNtFnd='Statistics for this date not found'; // Статистика не найдено за указанный день
-  str_ErrFldTLdSttstcsFl='Error: failed to load statistics file';
+//  str_ErrFldTLdSttstcsFl='Error: failed to load statistics file';
   str_EntrDtInFrmt='Please enter the date in format: dd-mm-yyyy';
   str_SttstcsFr='Statistics for ';
   str_SlctSttstcs_line1='Select statistics by pressing the button. In addition, the available commands:';
@@ -169,8 +180,11 @@ resourcestring
   str_SlctSttstcs_line4='where <i>date</i> is <i>today</i> or <i>yesterday</i> or in format <i>dd-mm-yyyy</i>';
   str_Today='Today';
   str_Yesterday='Yesterday';
+  str_Monthly='Monthly';
   str_PrevDay='Prev day';
   str_NextDay='Next day';
+  str_Prev='<';
+  str_Next='>';
   str_Rate='Rate';
   str_RateText='Please leave feedback on "Storebot" if you like our bot!';
   str_Browse='Browse';
@@ -179,6 +193,7 @@ resourcestring
 
 const
   StatDateFormat = 'dd-mm-yyyy';
+  StatMonthFormat = 'mm-yyyy';
   UserStatusChars: array [TUserStatus] of AnsiChar = ('a', 'm', 'b', '_');
   cmd_Start = '/start';
   cmd_Help = '/help';
@@ -237,6 +252,27 @@ begin
   Ss.Free;
 end;
 
+function TryStrToMonth(const S: String; out aYear, aMonth: Word): Boolean;
+var
+  i: SizeInt;
+  wMonth, wYear: DWord;
+begin
+  i:=Pos('-', S);
+  if (i<2) or (i>3) then
+    Exit(False);
+  if TryStrToDWord(LeftStr(S, i-1), wMonth) then
+  begin
+    aMonth:=wMonth;
+    if not TryStrToDWord(RightStr(S, Length(S)-i), wYear) then
+      aYear:=CurrentYear
+    else
+      aYear:=wYear;
+  end
+  else
+    Exit(False);
+  Result:=True;
+end;
+
 { TWebhookBot }
 
 procedure TWebhookBot.SetBrookAction(AValue: TWebhookAction);
@@ -281,6 +317,88 @@ begin
   FStartText:=AValue;
 end;
 
+procedure TWebhookBot.SetStatLogger(AValue: TtgStatLog);
+begin
+  if FStatLogger=AValue then Exit;
+  FStatLogger:=AValue;
+end;
+
+procedure TWebhookBot.BrowseStatFile(aDate: TDate; var Msg: String;
+  ReplyMarkup: TReplyMarkup; Offset: Integer);
+var
+  StatFile: TStringList;
+  aFileName: String;
+  i: Integer;
+const
+  Step=20;
+begin
+  aFileName:=FStatLogger.GetFileNameFromDate(aDate);
+  if FileExists(aFileName) then
+  begin
+    StatFile:=TStringList.Create;
+    try
+      StatFile.LoadFromFile(AFileName);
+      ReplyMarkup.InlineKeyBoard:=CreateInlineKeyboardStat(aDate, StatFile.Count, Offset,
+        Step);
+      for i:=Offset to Offset+Step-1 do
+      begin
+        if i>=StatFile.Count then
+          Break;
+        Msg+=FormatStatRec(StatFile[i])+LineEnding;
+      end;
+    finally
+      StatFile.Free;
+    end;
+  end;
+end;
+
+procedure TWebhookBot.CalculateStat4Strings(aStatFile: TStrings;
+  IDs: TIntegerHashSet; var aEvents: Integer);
+var
+  i: Integer;
+  AnID: Int64;
+begin
+  for i:=aStatFile.Count-1 downto 0 do
+  begin
+    AnID:=StrToInt64Def(ExtractDelimited(2, aStatFile[i], [';']), 0);
+    if AnID>0 then
+    begin
+      Inc(aEvents);
+      IDs.insert(AnID);
+    end;
+  end;
+end;
+
+procedure TWebhookBot.CalculateStat4Strings(aFromDate, aToDate: TDate; out
+  aUsers, aEvents: Integer);
+var
+  StatFile: TStringList;
+  aDate: TDate;
+  aFileName: String;
+  IDs: TIntegerHashSet;
+begin
+  StatFile:=TStringList.Create;
+  IDs:=TIntegerHashSet.create;
+  aDate:=aFromDate;
+  try
+    repeat
+      aFileName:=StatLogger.GetFileNameFromDate(aDate);
+      if FileExists(aFileName) then
+      begin
+        StatFile.LoadFromFile(AFileName);
+        { Simple calculation of statistics: the number of unique users per day and
+          the number of received events from users (private chats) }
+        CalculateStat4Strings(StatFile, IDs, aEvents);
+      end;
+      aDate+=1;
+    until aDate>aToDate;
+    aUsers:=IDs.size;
+  finally
+    StatFile.Free;
+    IDs.Free;
+  end;
+end;
+
 procedure TWebhookBot.DoCallbackQueryStat(ACallbackQuery: TCallbackQueryObj;
   SendFile: Boolean);
 begin
@@ -292,14 +410,13 @@ even if no notification to the user is needed }
   RequestWhenAnswer:=False;
   answerCallbackQuery(ACallbackQuery.ID);
 end;
-
-procedure TWebhookBot.DoGetStat(ADate: TDate; Scroll: Boolean; Offset: Integer);
+{
+procedure TWebhookBot.BrowseStatFile(aDate: TDate);
 var
   StatFile: TStringList;
   Msg, SDate: String;
   AFileName: String;
   i, c: Integer;
-  AnID: Int64;
   ReplyMarkup: TReplyMarkup;
   IDs: TIntegerHashSet;
 const
@@ -309,57 +426,178 @@ begin
     if not PublicStat or Scroll then
       Exit;
   ReplyMarkup:=TReplyMarkup.Create;
+  StatFile:=TStringList.Create;
   try
-    StatFile:=TStringList.Create;
+    AFileName:=FBrookAction.StatLogger.GetFileNameFromDate(ADate);
+    RequestWhenAnswer:=False;
     try
-      AFileName:=FBrookAction.StatLogger.GetFileNameFromDate(ADate);
-      RequestWhenAnswer:=False;
-      try
-        if FileExists(AFileName) then
+      if FileExists(AFileName) then
+      begin
+        DateTimeToString(SDate, 'dd-mm-yyyy', ADate);
+        StatFile.LoadFromFile(AFileName);
+        if not Scroll then
         begin
-          DateTimeToString(SDate, 'dd-mm-yyyy', ADate);
-          StatFile.LoadFromFile(AFileName);
-          if not Scroll then
-          begin
-            ReplyMarkup.InlineKeyBoard:=CreateInlineKeyboardStat(ADate);
-            Msg:='*Statistics for '+SDate+'*'+LineEnding;
-{ Simple calculation of statistics: the number of unique users per day and
-            the number of received events from users (private chats) }
-            IDs:=TIntegerHashSet.create;
-            c:=0;
-            for i:=StatFile.Count-1 downto 0 do
-            begin
-              AnID:=StrToInt64Def(ExtractDelimited(2, StatFile[i], [';']), 0);
-              if AnID>0 then
-              begin
-                Inc(c);
-                IDs.insert(AnID);
-              end;
-            end;
-            Msg+=LineEnding+'Unique users: '+IntToStr(IDs.size)+', user events: '+
-              IntToStr(c);
-            IDs.Free;
-          end
-          else begin
-            ReplyMarkup.InlineKeyBoard:=CreateInlineKeyboardStat(ADate, StatFile.Count, Offset,
-              Step);
-            Msg:='*Statistics for '+SDate+'*'+LineEnding;
-            for i:=Offset to Offset+Step-1 do
-            begin
-              if i>=StatFile.Count then
-                Break;
-              Msg+=FormatStatRec(StatFile[i])+LineEnding;
-            end;
-          end;
-          editMessageText(Msg, pmMarkdown, True, ReplyMarkup);
+          ReplyMarkup.InlineKeyBoard:=CreateInlineKeyboardStat(ADate);
+          Msg:='*Statistics for '+SDate+'*'+LineEnding;
+          IDs:=TIntegerHashSet.create;
+          c:=0;
+          CalculateStat4Strings(StatFile, IDs, c);
+          Msg+=LineEnding+'Unique users: '+IntToStr(IDs.size)+', user events: '+
+            IntToStr(c);
+          IDs.Free;
         end
-        else
-          editMessageText(str_SttstcsNtFnd, pmDefault, True, ReplyMarkup);
-      except
-        editMessageText(str_ErrFldTLdSttstcsFl, pmDefault, True, ReplyMarkup);
+        else begin
+          ReplyMarkup.InlineKeyBoard:=CreateInlineKeyboardStat(ADate, StatFile.Count, Offset,
+            Step);
+          Msg:='*Statistics for '+SDate+'*'+LineEnding;
+          for i:=Offset to Offset+Step-1 do
+          begin
+            if i>=StatFile.Count then
+              Break;
+            Msg+=FormatStatRec(StatFile[i])+LineEnding;
+          end;
+        end;
+        editMessageText(Msg, pmMarkdown, True, ReplyMarkup);
+      end
+      else
+        editMessageText(str_SttstcsNtFnd, pmDefault, True, ReplyMarkup);
+    except
+      editMessageText(str_ErrFldTLdSttstcsFl, pmDefault, True, ReplyMarkup);
+    end;
+  finally
+    StatFile.Free;
+    ReplyMarkup.Free;
+  end;
+end;
+}
+procedure TWebhookBot.DoGetStat(aFromDate: TDate; aToDate: TDate;
+  Scroll: Boolean; Offset: Integer);
+var
+  Msg, SDate: String;
+  SDate1: String;
+  aEvents, aUsers: Integer;
+  ReplyMarkup: TReplyMarkup;
+begin
+  if CurrentIsSimpleUser then
+    if not PublicStat or Scroll then
+      Exit;
+  ReplyMarkup:=TReplyMarkup.Create;
+  try
+    RequestWhenAnswer:=False;
+    try
+      if aToDate<=aFromDate then
+      begin
+        DateTimeToString(SDate, 'dd-mm-yyyy', aFromDate);
+        Msg:='*Statistics for '+SDate+'*'+LineEnding;
+      end
+      else begin
+        DateTimeToString(SDate, 'dd-mm-yyyy', aFromDate);
+        DateTimeToString(SDate1, 'dd-mm-yyyy', aToDate);
+        Msg:='*Statistics from '+SDate+' to '+SDate1+'*'+LineEnding;
       end;
-    finally
-      StatFile.Free;
+      if not Scroll then
+      begin
+        ReplyMarkup.InlineKeyBoard:=CreateInlineKeyboardStat(aFromDate);
+        aUsers:=0;
+        aEvents:=0;
+        CalculateStat4Strings(aFromDate, aToDate, aUsers, aEvents);
+        Msg+=LineEnding+'Unique users: '+IntToStr(aUsers)+', user events: '+IntToStr(aEvents);
+      end
+      else
+        BrowseStatFile(aFromDate, Msg, ReplyMarkup, Offset);
+      editMessageText(Msg, pmMarkdown, True, ReplyMarkup);
+    except
+      on E: Exception do
+        ErrorMessage('Error while get statistics: ['+E.ClassName+'] '+E.Message);
+    end;
+  finally
+    ReplyMarkup.Free;
+  end;
+end;
+{
+procedure TWebhookBot.DoGetStatMonth(aDateInMonth: TDate);
+var
+  Msg, SDate: String;
+  aEvents, aUsers: Integer;
+  ReplyMarkup: TReplyMarkup;
+  aDate: TDate;
+  aToDate, aFromDate: TDate;
+begin
+  if CurrentIsSimpleUser then
+    if not PublicStat then
+      Exit;
+  ReplyMarkup:=TReplyMarkup.Create;
+  try
+    RequestWhenAnswer:=False;
+    try
+      DateTimeToString(SDate, 'mm-yyyy', aFromDate);
+      Msg:='*Statistics for '+SDate+'*'+LineEnding;
+      ReplyMarkup.InlineKeyBoard:=CreateInlineKeyboardStat(aFromDate);
+      aUsers:=0;
+      aEvents:=0;
+      aToDate:=EndOfTheMonth(aDateInMonth);
+      aFromDate:=StartOfTheMonth(aDateInMonth);
+      CalculateStat4Strings(aFromDate, aToDate, aUsers, aEvents);
+      Msg+=LineEnding+'Unique users: '+IntToStr(aUsers)+', user events: '+IntToStr(aEvents);
+
+      repeat
+        CalculateStat4Strings(aDate, aDate, aUsers, aEvents);
+        DateTimeToString(SDate, 'dd-mm-yyyy', aDate);
+        Msg+=LineEnding+mdCode+SDate+mdCode+': _users_ '+IntToStr(aUsers)+'_, events_ '+IntToStr(aEvents);
+        aDate+=1;
+      until aDate>aToDate;
+      editMessageText(Msg, pmMarkdown, True, ReplyMarkup);
+    except
+      editMessageText(str_ErrFldTLdSttstcsFl, pmDefault, True, ReplyMarkup);
+    end;
+  finally
+    ReplyMarkup.Free;
+  end;
+end;
+}
+procedure TWebhookBot.DoGetStatMonth(aYear, aMonth: Word);
+var
+  Msg, SDate: String;
+  aEvents, aUsers, sEvents, sUsers: Integer;
+  ReplyMarkup: TReplyMarkup;
+  aDate: TDate;
+  aToDate, aFromDate: TDate;
+begin
+  if CurrentIsSimpleUser then
+    if not PublicStat then
+      Exit;
+  ReplyMarkup:=TReplyMarkup.Create;
+  try
+    RequestWhenAnswer:=False;
+    try
+      SDate:=aMonth.ToString+'-'+aYear.ToString;
+      aToDate:=EndOfAMonth(aYear, aMonth);
+      aFromDate:=StartOfAMonth(aYear, aMonth);
+      Msg:='*Statistics for '+SDate+'*'+LineEnding;
+      ReplyMarkup.InlineKeyBoard:=CreateInlineKeyboardStatMonth(aFromDate);
+      aUsers:=0;
+      aEvents:=0;
+      CalculateStat4Strings(aFromDate, aToDate, aUsers, aEvents);
+      Msg+=LineEnding+'Unique users: '+IntToStr(aUsers)+', user events: '+IntToStr(aEvents);
+      aDate:=aFromDate;
+      sUsers:=0;
+      sEvents:=0;
+      repeat
+        aUsers:=0;
+        aEvents:=0;
+        CalculateStat4Strings(aDate, aDate,  aUsers, aEvents);
+        DateTimeToString(SDate, 'dd-mm-yyyy', aDate);
+        Msg+=LineEnding+mdCode+SDate+mdCode+' - _users:_ '+IntToStr(aUsers)+'_, events:_ '+IntToStr(aEvents);
+        sEvents+=aEvents;
+        sUsers+=aUsers;
+        aDate+=1;
+      until (aDate>aToDate) or (aDate>Date);
+      Msg+=LineEnding+mdCode+'Summary'+mdCode+' - _users:_ '+
+        IntToStr(sUsers div DaysBetween(aFromDate, aToDate))+'_, events:_ '+IntToStr(sEvents);
+      editMessageText(Msg, pmMarkdown, True, ReplyMarkup);
+    except
+      on E: Exception do
+        ErrorMessage('Error while get month statistics: ['+E.ClassName+'] '+E.Message);
     end;
   finally
     ReplyMarkup.Free;
@@ -375,7 +613,7 @@ begin
   ReplyMarkup:=TReplyMarkup.Create;
   try
     ReplyMarkup.InlineKeyBoard:=CreateInlineKeyboardStatFile;
-    FBrookAction.SendStatLog(ADate, ReplyMarkup)
+    SendStatLog(ADate, ReplyMarkup)
   finally
     ReplyMarkup.Free;
   end;
@@ -384,31 +622,59 @@ end;
 procedure TWebhookBot.DoStat(const SDate: String; const SOffset: String;
   SendFile: Boolean);
 var
-  FDate: TDate;
   S: String;
+  i: SizeInt;
+  aToDate, aFromDate: TDate;
+  aMonth, aYear: Word;
 begin
-  if not Assigned(FBrookAction.StatLogger) then
+  if not Assigned(FStatLogger) then
     Exit;
+  aToDate:=0;
   S:=Trim(SDate);
   if (S=s_Today) or (S=EmptyStr) then
-    FDate:=Date
+    aFromDate:=Date
   else
     if S=s_Yesterday then
-      FDate:=Date-1
-    else
-      if not TryStrToDate(S, FDate, StatDateFormat, '-') then
+      aFromDate:=Date-1
+    else begin
+      i:=Pos('/', S);
+      if i>0 then
       begin
-        RequestWhenAnswer:=True;
-        sendMessage(str_EntrDtInFrmt);
-        Exit;
-      end;
+        if not (TryStrToDate(LeftStr(S, i-1), aFromDate, StatDateFormat, '-') and
+          TryStrToDate(RightStr(S, Length(S)-i), aToDate)) then
+        begin
+          RequestWhenAnswer:=True;
+          sendMessage(str_EntrDtInFrmt);
+          Exit;
+        end
+      end
+      else
+        if Length(S)>7 then
+        begin
+          if not TryStrToDate(S, aFromDate, StatDateFormat, '-') then
+          begin
+            RequestWhenAnswer:=True;
+            sendMessage(str_EntrDtInFrmt);
+            Exit;
+          end
+        end
+        else begin
+          if TryStrToMonth(S, aYear, aMonth) then
+            DoGetStatMonth(aYear, aMonth)
+          else begin
+            RequestWhenAnswer:=True;
+            sendMessage(str_EntrDtInFrmt);
+          end;
+          Exit;
+        end;
+     end;
   if SOffset=EmptyStr then
     if not SendFile then
-      DoGetStat(FDate)
+      DoGetStat(aFromDate, aToDate)
     else
-      DoGetStatFile(FDate)
+      DoGetStatFile(aFromDate)
   else
-    DoGetStat(FDate, True, StrToIntDef(SOffset, 0));
+    DoGetStat(aFromDate, aToDate, True, StrToIntDef(SOffset, 0));
 end;
 
 function TWebhookBot.GetCallbackHandlers(const Command: String): TCallbackEvent;
@@ -419,6 +685,25 @@ end;
 function TWebhookBot.GetUserStatus(ID: Int64): TUserStatus;
 begin
   Result:=AnsiCharToUserStatus(FUserPermissions.Values[IntToStr(ID)]);
+end;
+
+procedure TWebhookBot.SendStatLog(ADate: TDate; AReplyMarkup: TReplyMarkup);
+var
+  AFileName: String;
+begin
+  if ADate=0 then
+    ADate:=sysutils.Date;
+  AFileName:=FStatLogger.GetFileNameFromDate(ADate);
+  if FileExists(AFileName) then
+  begin
+    RequestWhenAnswer:=False;
+    sendDocumentByFileName(CurrentChatId, AFileName, str_SttstcsFr+DateToStr(ADate));
+  end
+  else
+  begin
+    RequestWhenAnswer:=True;
+    EditOrSendMessage(str_SttstcsNtFnd, pmDefault, AReplyMarkup, True);
+  end;
 end;
 
 procedure TWebhookBot.SetUserStatus(ID: Int64; AValue: TUserStatus);
@@ -528,6 +813,8 @@ procedure TWebhookBot.LangTranslate(const ALang: String);{$IFNDEF ni18n}
 var
   L, F: String;  {$ENDIF}
 begin{$IFNDEF ni18n}
+  if ALang=EmptyStr then
+    Exit;
   if Length(ALang)>2 then
     L:=LeftStr(ALang, 2)
   else
@@ -560,12 +847,12 @@ begin
   EscMsg:=UTF8LeftStr(AMessage, 150);
   try
     if Assigned(CurrentUser)then
-      FBrookAction.StatLogger.Log([IntToStr(CurrentChatId), '@'+CurrentUser.Username,
+      StatLogger.Log([IntToStr(CurrentChatId), '@'+CurrentUser.Username,
         CurrentUser.First_name, CurrentUser.Last_name, CurrentUser.Language_code,
         UpdateTypeAliases[UpdateType], '"'+StringToJSONString(EscMsg)+'"'])
     else begin
       if Assigned(CurrentChat) then
-        FBrookAction.StatLogger.Log([IntToStr(CurrentChatId), '@'+CurrentChat.Username,
+        FStatLogger.Log([IntToStr(CurrentChatId), '@'+CurrentChat.Username,
           CurrentChat.First_name, CurrentChat.Last_name, '-', UpdateTypeAliases[UpdateType],
           '"'+StringToJSONString(EscMsg)+'"'])
     end;
@@ -590,17 +877,18 @@ end;
 function TWebhookBot.CreateInlineKeyboardStat(ADate: TDate): TInlineKeyboard;
 var
   btns: TInlineKeyboardButtons;
-  S, PrevDate, NextDate: String;
+  S, PrevDate, NextDate, SMonth: String;
 begin
   DateTimeToString(PrevDate, StatDateFormat, ADate-1);
   DateTimeToString(NextDate, StatDateFormat, ADate+1);
   Result:=TInlineKeyboard.Create;
   btns:=Result.Add;
   DateTimeToString(S, StatDateFormat, ADate);
+  DateTimeToString(SMonth, StatMonthFormat, ADate);
   if not CurrentIsSimpleUser then
   begin
-    btns.AddButtons([str_Today+' 🔃', s_GetStat+' '+s_Today, str_Yesterday,
-      s_GetStat+' '+s_Yesterday, str_Browse, s_GetStat+' '+S+' '+'0']);
+    btns.AddButtons([str_Today+' 🔃', s_GetStat+' '+s_Today, str_Monthly,
+      s_GetStat+' '+SMonth, str_Browse, s_GetStat+' '+S+' '+'0']);
     btns:=Result.Add;
     btns.AddButtons([str_PrevDay, s_GetStat+' '+PrevDate, str_NextDay, s_GetStat+' '+NextDate]);
   end
@@ -626,6 +914,28 @@ begin
   btns:=Result.Add;
   btns.AddButtons([str_Today+' 🔃', s_GetStat+'File'+' '+s_Today, str_Yesterday,
     s_GetStat+'File'+' '+s_Yesterday]);
+end;
+
+function TWebhookBot.CreateInlineKeyboardStatMonth(ADate: TDate
+  ): TInlineKeyboard;
+var
+  btns: TInlineKeyboardButtons;
+  S, PrevDate, NextDate: String;
+begin
+  DateTimeToString(PrevDate, StatMonthFormat, IncMonth(ADate, -1));
+  DateTimeToString(NextDate, StatMonthFormat, IncMonth(ADate, 1));
+  Result:=TInlineKeyboard.Create;
+  btns:=Result.Add;
+  DateTimeToString(S, StatDateFormat, ADate);
+  if not CurrentIsSimpleUser then
+  begin
+    btns.AddButtons([str_Today+' 🔃', s_GetStat+' '+s_Yesterday, str_Browse+' '+S, s_GetStat+' '+S+' '+'0']);
+    btns:=Result.Add;
+    btns.AddButtons([str_Prev, s_GetStat+' '+PrevDate, str_Next, s_GetStat+' '+NextDate]);
+  end
+  else
+    btns.AddButtons([str_Today+' 🔃', s_GetStat+' '+s_Today,
+      str_Prev, s_GetStat+' '+PrevDate, str_Next, s_GetStat+' '+NextDate])
 end;
 
 function TWebhookBot.CreateInlineKeyboardStat(ADate: TDate; Len: Integer;
@@ -670,6 +980,9 @@ constructor TWebhookBot.Create(const AToken: String;
 begin
   inherited Create(AToken);
   FBrookAction:=AWebhookAction;
+  FStatLogger:=TtgStatLog.Create(nil);
+  FStatLogger.Active:=False;
+  FStatLogger.TimeStampFormat:='hh:nn:ss';
   FUserPermissions:=TStringList.Create;
   FUserPermissions.Sorted:=True;
   FUserPermissions.Duplicates:=dupIgnore;
@@ -690,6 +1003,7 @@ destructor TWebhookBot.Destroy;
 begin
   FCallbackHandlers.Free;
   FUserPermissions.Free;
+  FStatLogger.Free;
   inherited Destroy;
 end;
 
@@ -748,8 +1062,8 @@ begin
       RequestWhenAnswer:=AFlag;
       AHandled:=True;
     end;
-    if not AHandled then
-      FBrookAction.BotCallbackQuery(ACallback);
+{    if not AHandled then
+      FBrookAction.BotCallbackQuery(ACallback);}
   end;
 end;
 
@@ -771,6 +1085,15 @@ procedure TWebhookBot.DoReceiveInlineQuery(
 begin
   inherited DoReceiveInlineQuery(AnInlineQuery);
   StatLog(AnInlineQuery.Query, utInlineQuery);
+end;
+
+procedure TWebhookBot.EditOrSendMessage(const AMessage: String;
+  AParseMode: TParseMode; ReplyMarkup: TReplyMarkup; TryEdit: Boolean);
+begin
+  if not TryEdit or (CurrentUpdate.UpdateType<>utCallbackQuery) then
+    sendMessage(AMessage, AParseMode, True, ReplyMarkup)
+  else
+    editMessageText(AMessage, AParseMode, True, ReplyMarkup);
 end;
 
 function TWebhookBot.IsBanned(ChatID: Int64): Boolean;
@@ -810,12 +1133,6 @@ begin
   FToken:=AValue;
   if Assigned(FBot) then
     FBot.Token:=FToken;
-end;
-
-procedure TWebhookAction.SetStatLogger(AValue: TtgStatLog);
-begin
-  if FStatLogger=AValue then Exit;
-  FStatLogger:=AValue;
 end;
 
 procedure TWebhookAction.SetOnCallbackQuery(AValue: TCallbackEvent);
@@ -901,25 +1218,6 @@ begin
     FOnUpdateMessage(Self, AMessage);
 end;
 
-procedure TWebhookAction.SendStatLog(ADate: TDate = 0; AReplyMarkup: TReplyMarkup = nil);
-var
-  AFileName: String;
-begin
-  if ADate=0 then
-    ADate:=sysutils.Date;
-  AFileName:=StatLogger.GetFileNameFromDate(ADate);
-  if FileExists(AFileName) then
-  begin
-    FBot.RequestWhenAnswer:=False;
-    FBot.sendDocumentByFileName(Bot.CurrentChatId, AFileName, str_SttstcsFr+DateToStr(ADate));
-  end
-  else
-  begin
-    FBot.RequestWhenAnswer:=True;
-    EditOrSendMessage(str_SttstcsNtFnd, pmDefault, AReplyMarkup, True);
-  end;
-end;
-
 procedure TWebhookAction.LogMessage(ASender: TObject; EventType: TEventType; const Msg: String);
 begin
   if not FLogDebug and (EventType=etDebug) then
@@ -933,19 +1231,13 @@ it is desirable not to create a new message and edit the message from which the 
 procedure TWebhookAction.EditOrSendMessage(const AMessage: String;
   AParseMode: TParseMode; ReplyMarkup: TReplyMarkup; TryEdit: Boolean);
 begin
-  if not TryEdit or (Bot.CurrentUpdate.UpdateType<>utCallbackQuery) then
-    Bot.sendMessage(AMessage, AParseMode, True, ReplyMarkup)
-  else
-    Bot.editMessageText(AMessage, AParseMode, True, ReplyMarkup);
+  FBot.EditOrSendMessage(AMessage, AParseMode, ReplyMarkup, TryEdit);
 end;
 
 constructor TWebhookAction.Create;
 begin
   inherited Create;
   FLogDebug:=False;
-  FStatLogger:=TtgStatLog.Create(nil);
-  FStatLogger.Active:=False;
-  FStatLogger.TimeStampFormat:='hh:nn:ss';
   FBot:=TWebhookBot.Create(FToken, Self);
   FBot.CommandHandlers[cmd_Terminate]:=@BotTerminateHandler;
   FBot.CommandHandlers[cmd_SetStart]:= @BotSetCommandReply;
@@ -955,7 +1247,6 @@ end;
 destructor TWebhookAction.Destroy;
 begin
   FreeAndNil(FBot);
-  FreeAndNil(FStatLogger);
   inherited Destroy;
 end;
 

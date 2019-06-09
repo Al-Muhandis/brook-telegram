@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <CONFIG>
   <ProjectOptions>
-    <Version Value="10"/>
+    <Version Value="11"/>
     <PathDelim Value="\"/>
     <General>
       <Flags>
@@ -114,9 +114,10 @@
       <Version Value="2"/>
     </PublishOptions>
     <RunParams>
-      <local>
-        <FormatVersion Value="1"/>
-      </local>
+      <FormatVersion Value="2"/>
+      <Modes Count="1">
+        <Mode0 Name="default"/>
+      </Modes>
     </RunParams>
     <RequiredPackages Count="3">
       <Item1>
@@ -129,7 +130,7 @@
         <PackageName Value="BrookRT"/>
       </Item3>
     </RequiredPackages>
-    <Units Count="29">
+    <Units Count="30">
       <Unit0>
         <Filename Value="hello.lpr"/>
         <IsPartOfProject Value="True"/>
@@ -142,9 +143,8 @@
       <Unit1>
         <Filename Value="telegramwebhookaction.pas"/>
         <IsPartOfProject Value="True"/>
-        <IsVisibleTab Value="True"/>
-        <TopLine Value="62"/>
-        <CursorPos X="35" Y="93"/>
+        <TopLine Value="78"/>
+        <CursorPos X="21" Y="89"/>
         <UsageCount Value="45"/>
         <Loaded Value="True"/>
       </Unit1>
@@ -152,7 +152,7 @@
         <Filename Value="brokers.pas"/>
         <IsPartOfProject Value="True"/>
         <UnitName Value="Brokers"/>
-        <EditorIndex Value="4"/>
+        <EditorIndex Value="2"/>
         <TopLine Value="8"/>
         <CursorPos X="3" Y="11"/>
         <UsageCount Value="45"/>
@@ -160,9 +160,10 @@
       </Unit2>
       <Unit3>
         <Filename Value="..\brooktelegramaction.pas"/>
+        <IsVisibleTab Value="True"/>
         <EditorIndex Value="1"/>
-        <TopLine Value="711"/>
-        <CursorPos X="3" Y="761"/>
+        <TopLine Value="165"/>
+        <CursorPos X="3" Y="174"/>
         <UsageCount Value="20"/>
         <Loaded Value="True"/>
       </Unit3>
@@ -261,11 +262,10 @@
       </Unit16>
       <Unit17>
         <Filename Value="..\..\..\fp-telegram\trunk\tgsendertypes.pas"/>
-        <EditorIndex Value="2"/>
+        <EditorIndex Value="-1"/>
         <TopLine Value="993"/>
         <CursorPos X="32" Y="1010"/>
         <UsageCount Value="17"/>
-        <Loaded Value="True"/>
       </Unit17>
       <Unit18>
         <Filename Value="C:\fpcupdeluxe\ccr\brookframework\core\brookaction.pas"/>
@@ -329,11 +329,10 @@
       </Unit25>
       <Unit26>
         <Filename Value="..\..\..\fp-telegram\trunk\tgtypes.pas"/>
-        <EditorIndex Value="3"/>
+        <EditorIndex Value="-1"/>
         <TopLine Value="309"/>
         <CursorPos X="27" Y="319"/>
         <UsageCount Value="13"/>
-        <Loaded Value="True"/>
       </Unit26>
       <Unit27>
         <Filename Value="C:\lazarus32\fpcsrc\rtl\objpas\sysutils\finah.inc"/>
@@ -349,128 +348,102 @@
         <CursorPos X="3" Y="59"/>
         <UsageCount Value="10"/>
       </Unit28>
+      <Unit29>
+        <Filename Value="..\..\fp-telegram\tgstatlog.pas"/>
+        <EditorIndex Value="-1"/>
+        <CursorPos X="3" Y="13"/>
+        <UsageCount Value="10"/>
+      </Unit29>
     </Units>
-    <JumpHistory Count="30" HistoryIndex="29">
+    <JumpHistory Count="22" HistoryIndex="21">
       <Position1>
-        <Filename Value="..\..\..\fp-telegram\trunk\tgsendertypes.pas"/>
-        <Caret Line="348" Column="14" TopLine="338"/>
+        <Filename Value="telegramwebhookaction.pas"/>
+        <Caret Line="55" Column="32" TopLine="45"/>
       </Position1>
       <Position2>
         <Filename Value="telegramwebhookaction.pas"/>
-        <Caret Line="18" Column="82" TopLine="7"/>
+        <Caret Line="18" Column="43" TopLine="4"/>
       </Position2>
       <Position3>
         <Filename Value="telegramwebhookaction.pas"/>
-        <Caret Line="43" Column="72" TopLine="35"/>
+        <Caret Line="58" Column="19" TopLine="51"/>
       </Position3>
       <Position4>
         <Filename Value="..\brooktelegramaction.pas"/>
-        <Caret Line="52" Column="15" TopLine="41"/>
+        <Caret Line="58" Column="17" TopLine="46"/>
       </Position4>
       <Position5>
         <Filename Value="telegramwebhookaction.pas"/>
-        <Caret Line="38" Column="40" TopLine="25"/>
+        <Caret Line="68" Column="46" TopLine="61"/>
       </Position5>
       <Position6>
         <Filename Value="telegramwebhookaction.pas"/>
-        <Caret Line="58" Column="45" TopLine="38"/>
+        <Caret Line="20" Column="34" TopLine="6"/>
       </Position6>
       <Position7>
-        <Filename Value="..\..\..\fp-telegram\trunk\tgsendertypes.pas"/>
-        <Caret Line="348" Column="94" TopLine="330"/>
+        <Filename Value="telegramwebhookaction.pas"/>
+        <Caret Line="24" Column="20" TopLine="16"/>
       </Position7>
       <Position8>
-        <Filename Value="telegramwebhookaction.pas"/>
-        <Caret Line="55" Column="32" TopLine="45"/>
+        <Filename Value="..\brooktelegramaction.pas"/>
+        <Caret Line="58" Column="26" TopLine="49"/>
       </Position8>
       <Position9>
-        <Filename Value="telegramwebhookaction.pas"/>
-        <Caret Line="18" Column="43" TopLine="4"/>
+        <Filename Value="..\brooktelegramaction.pas"/>
+        <Caret Line="750" Column="35" TopLine="734"/>
       </Position9>
       <Position10>
-        <Filename Value="telegramwebhookaction.pas"/>
-        <Caret Line="58" Column="19" TopLine="51"/>
+        <Filename Value="..\brooktelegramaction.pas"/>
+        <Caret Line="749" Column="58" TopLine="738"/>
       </Position10>
       <Position11>
-        <Filename Value="..\brooktelegramaction.pas"/>
-        <Caret Line="58" Column="17" TopLine="46"/>
+        <Filename Value="telegramwebhookaction.pas"/>
+        <Caret Line="84" Column="27" TopLine="59"/>
       </Position11>
       <Position12>
-        <Filename Value="telegramwebhookaction.pas"/>
-        <Caret Line="68" Column="46" TopLine="61"/>
+        <Filename Value="..\brooktelegramaction.pas"/>
+        <Caret Line="51" Column="17" TopLine="43"/>
       </Position12>
       <Position13>
         <Filename Value="telegramwebhookaction.pas"/>
-        <Caret Line="20" Column="34" TopLine="6"/>
+        <Caret Line="93" Column="35" TopLine="68"/>
       </Position13>
       <Position14>
         <Filename Value="telegramwebhookaction.pas"/>
-        <Caret Line="24" Column="20" TopLine="16"/>
+        <Caret Line="72" Column="9" TopLine="56"/>
       </Position14>
       <Position15>
-        <Filename Value="..\brooktelegramaction.pas"/>
-        <Caret Line="58" Column="26" TopLine="49"/>
+        <Filename Value="telegramwebhookaction.pas"/>
+        <Caret Line="14" Column="3" TopLine="10"/>
       </Position15>
       <Position16>
         <Filename Value="..\brooktelegramaction.pas"/>
-        <Caret Line="750" Column="35" TopLine="734"/>
+        <Caret Line="24" Column="3" TopLine="26"/>
       </Position16>
       <Position17>
         <Filename Value="..\brooktelegramaction.pas"/>
-        <Caret Line="749" Column="58" TopLine="738"/>
+        <Caret Line="77" Column="15" TopLine="61"/>
       </Position17>
       <Position18>
-        <Filename Value="..\..\..\fp-telegram\trunk\tgtypes.pas"/>
-        <Caret Line="17" Column="36"/>
+        <Filename Value="..\brooktelegramaction.pas"/>
+        <Caret Line="101" Column="27" TopLine="86"/>
       </Position18>
       <Position19>
-        <Filename Value="..\..\..\fp-telegram\trunk\tgtypes.pas"/>
-        <Caret Line="76" Column="14" TopLine="59"/>
+        <Filename Value="telegramwebhookaction.pas"/>
+        <Caret Line="14" Column="3" TopLine="10"/>
       </Position19>
       <Position20>
-        <Filename Value="..\..\..\fp-telegram\trunk\tgtypes.pas"/>
-        <Caret Line="92" Column="56" TopLine="72"/>
+        <Filename Value="telegramwebhookaction.pas"/>
+        <Caret Line="73" Column="7" TopLine="62"/>
       </Position20>
       <Position21>
-        <Filename Value="..\..\..\fp-telegram\trunk\tgtypes.pas"/>
-        <Caret Line="134" Column="14" TopLine="120"/>
+        <Filename Value="telegramwebhookaction.pas"/>
+        <Caret Line="87" Column="7" TopLine="77"/>
       </Position21>
       <Position22>
-        <Filename Value="..\..\..\fp-telegram\trunk\tgtypes.pas"/>
-        <Caret Line="142" Column="56" TopLine="122"/>
-      </Position22>
-      <Position23>
-        <Filename Value="..\..\..\fp-telegram\trunk\tgtypes.pas"/>
-        <Caret Line="153" Column="14" TopLine="133"/>
-      </Position23>
-      <Position24>
-        <Filename Value="..\..\..\fp-telegram\trunk\tgtypes.pas"/>
-        <Caret Line="166" Column="56" TopLine="146"/>
-      </Position24>
-      <Position25>
-        <Filename Value="..\..\..\fp-telegram\trunk\tgtypes.pas"/>
-        <Caret Line="291" Column="15" TopLine="271"/>
-      </Position25>
-      <Position26>
-        <Filename Value="..\..\..\fp-telegram\trunk\tgtypes.pas"/>
-        <Caret Line="292" Column="12" TopLine="272"/>
-      </Position26>
-      <Position27>
-        <Filename Value="..\..\..\fp-telegram\trunk\tgtypes.pas"/>
-        <Caret Line="312" Column="12" TopLine="292"/>
-      </Position27>
-      <Position28>
-        <Filename Value="..\..\..\fp-telegram\trunk\tgtypes.pas"/>
-        <Caret Line="319" Column="24" TopLine="299"/>
-      </Position28>
-      <Position29>
         <Filename Value="telegramwebhookaction.pas"/>
-        <Caret Line="84" Column="27" TopLine="59"/>
-      </Position29>
-      <Position30>
-        <Filename Value="..\brooktelegramaction.pas"/>
-        <Caret Line="51" Column="17" TopLine="43"/>
-      </Position30>
+        <Caret Line="89" Column="21" TopLine="78"/>
+      </Position22>
     </JumpHistory>
   </ProjectOptions>
   <CompilerOptions>
