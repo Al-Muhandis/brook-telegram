@@ -380,6 +380,7 @@ begin
   StatFile:=TStringList.Create;
   IDs:=TIntegerHashSet.create;
   aDate:=aFromDate;
+  aEvents:=0;
   try
     repeat
       aFileName:=StatLogger.GetFileNameFromDate(aDate);
@@ -1010,7 +1011,7 @@ end;
 procedure TWebhookBot.DoReceiveMessageUpdate(AMessage: TTelegramMessageObj);
 begin
   inherited DoReceiveMessageUpdate(AMessage);
-  if Assigned(AMessage.ReplyToMessage) then
+  if Assigned(AMessage.ReplyToMessage) and not UpdateProcessed then
   begin
     if Assigned(AMessage.ReplyToMessage.From) then
       if SameText(AMessage.ReplyToMessage.From.Username, BotUsername) then
@@ -1089,8 +1090,14 @@ end;
 
 procedure TWebhookBot.EditOrSendMessage(const AMessage: String;
   AParseMode: TParseMode; ReplyMarkup: TReplyMarkup; TryEdit: Boolean);
+var
+  aCanEdit: Boolean;
 begin
-  if not TryEdit or (CurrentUpdate.UpdateType<>utCallbackQuery) then
+  { Variable aCanEdit is to avoid telegram API error "Bad Request: there is no text in the message to edit" }
+  if Assigned(CurrentUpdate.CallbackQuery) then
+    if Assigned(CurrentUpdate.CallbackQuery.Message) then
+      aCanEdit:=CurrentUpdate.CallbackQuery.Message.Text<>EmptyStr;
+  if not (TryEdit and aCanEdit)  then
     sendMessage(AMessage, AParseMode, True, ReplyMarkup)
   else
     editMessageText(AMessage, AParseMode, True, ReplyMarkup);
