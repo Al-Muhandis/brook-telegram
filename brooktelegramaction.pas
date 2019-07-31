@@ -124,7 +124,6 @@ type
     function CreateInlineKeyboardStatMonth(ADate: TDate): TInlineKeyboard;
     function CreateInlineKeyboardStat(ADate: TDate; Len: Integer; Offset: Integer = 0;
       Step: Integer = 20): TInlineKeyboard; overload;
-    procedure DoReceiveDeepLinking(const AParameter: String);
     procedure DoReceiveMessageUpdate(AMessage: TTelegramMessageObj); override;
     procedure DoReceiveCallbackQuery(ACallback: TCallbackQueryObj); override;
     procedure DoReceiveChannelPost(AChannelPost: TTelegramMessageObj); override;
@@ -140,6 +139,7 @@ type
       const Url: String=''; CacheTime: Integer=0): Boolean; override;
     constructor Create(const AToken: String; AWebhookAction: TWebhookAction);
     destructor Destroy; override;
+    procedure DoReceiveDeepLinking(const AParameter: String);
     procedure EditOrSendMessage(const AMessage: String; AParseMode: TParseMode = pmDefault;
       ReplyMarkup: TReplyMarkup = nil; TryEdit: Boolean = False);
     procedure LoadUserStatusValues(AStrings: TStrings);
@@ -1094,6 +1094,7 @@ var
   aCanEdit: Boolean;
 begin
   { Variable aCanEdit is to avoid telegram API error "Bad Request: there is no text in the message to edit" }
+  aCanEdit:=False;
   if Assigned(CurrentUpdate.CallbackQuery) then
     if Assigned(CurrentUpdate.CallbackQuery.Message) then
       aCanEdit:=CurrentUpdate.CallbackQuery.Message.Text<>EmptyStr;
