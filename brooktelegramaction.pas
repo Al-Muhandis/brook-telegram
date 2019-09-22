@@ -80,14 +80,14 @@ type
     procedure BrowseStatFile(aDate: TDate; var Msg: String; ReplyMarkup: TReplyMarkup; Offset: Integer);
     procedure CalculateStat4Strings(aStatFile: TStrings; IDs: TIntegerHashSet;
       var aEvents: Integer);
-    procedure CalculateStat4Strings(aFromDate, aToDate: TDate; out aUsers, aEvents: Integer);
     procedure DoCallbackQueryStat(ACallbackQuery: TCallbackQueryObj; SendFile: Boolean = False);
-//    procedure DoGetStat(ADate: TDate = 0; Scroll: Boolean = False; Offset: Integer = 0);
+    procedure DoCallbackQueryGetUsers(ACallbackQuery: TCallbackQueryObj);
     procedure DoGetStat(aFromDate: TDate = 0; aToDate: TDate = 0; Scroll: Boolean = False; Offset: Integer = 0);
-    //procedure DoGetStatMonth(aDateInMonth: TDate);
+    procedure DoGetUsers(aFromDate: TDate = 0; aToDate: TDate = 0);
     procedure DoGetStatMonth(aYear, aMonth: Word);
     procedure DoGetStatFile(ADate: TDate = 0);
     procedure DoStat(const SDate: String; const SOffset: String = ''; SendFile: Boolean = false);
+    procedure DoUsers(const SDate: String);
     function GetCallbackHandlers(const Command: String): TCallbackEvent;
     function GetUserStatus(ID: Int64): TUserStatus;
     procedure SendStatLog(ADate: TDate = 0; AReplyMarkup: TReplyMarkup = nil);
@@ -118,7 +118,7 @@ type
     procedure StatLog(const AMessage: String; UpdateType: TUpdateType);
   protected
     function CreateInlineKeyboardRate: TInlineKeyboard;
-    function CreateInlineKeyboardStat(ADate: TDate): TInlineKeyboard;
+    function CreateInlineKeyboardStat(aFromDate, aToDate: TDate): TInlineKeyboard;
     function CreateInlineKeyboardStat(ADate: TDate; SendFile: Boolean): TInlineKeyboard; overload;
     function CreateInlineKeyboardStatFile: TInlineKeyboard;
     function CreateInlineKeyboardStatMonth(ADate: TDate): TInlineKeyboard;
@@ -137,6 +137,8 @@ type
   public
     function answerCallbackQuery(const CallbackQueryId: String; const Text: String=''; ShowAlert: Boolean=False;
       const Url: String=''; CacheTime: Integer=0): Boolean; override;
+    procedure CalculateStat(aFromDate, aToDate: TDate; out aUsers, aEvents: Integer;
+      aIDs: TStrings = nil);
     constructor Create(const AToken: String; AWebhookAction: TWebhookAction);
     destructor Destroy; override;
     procedure DoReceiveDeepLinking(const AParameter: String);
@@ -183,6 +185,7 @@ resourcestring
   str_Monthly='Monthly';
   str_PrevDay='Prev day';
   str_NextDay='Next day';
+  str_Users='Users';
   str_Prev='<';
   str_Next='>';
   str_Rate='Rate';
@@ -207,6 +210,7 @@ const
   s_Today = 'today';
   s_Yesterday = 'yesterday';
   s_GetStat='GetStat';
+  s_GetUsers='GetUsers';
   s_File='File';
   s_StoreBotRate='https://telegram.me/storebot?start=';
 
@@ -369,13 +373,14 @@ begin
   end;
 end;
 
-procedure TWebhookBot.CalculateStat4Strings(aFromDate, aToDate: TDate; out
-  aUsers, aEvents: Integer);
+procedure TWebhookBot.CalculateStat(aFromDate, aToDate: TDate; out aUsers,
+  aEvents: Integer; aIDs: TStrings);
 var
   StatFile: TStringList;
   aDate: TDate;
   aFileName: String;
   IDs: TIntegerHashSet;
+  aIterator: TIntegerHashSet.TIterator;
 begin
   StatFile:=TStringList.Create;
   IDs:=TIntegerHashSet.create;
@@ -394,6 +399,20 @@ begin
       aDate+=1;
     until aDate>aToDate;
     aUsers:=IDs.size;
+    if Assigned(aIDs) then
+    begin
+      aIDs.Clear;
+      aIterator:=IDs.Iterator;
+      try
+        if IDs.IsEmpty then
+          Exit;
+        repeat
+          aIDs.Add(aIterator.Data.ToString);
+        until not aIterator.Next;
+      finally
+        aIterator.Free;
+      end;
+    end;
   finally
     StatFile.Free;
     IDs.Free;
@@ -411,66 +430,15 @@ even if no notification to the user is needed }
   RequestWhenAnswer:=False;
   answerCallbackQuery(ACallbackQuery.ID);
 end;
-{
-procedure TWebhookBot.BrowseStatFile(aDate: TDate);
-var
-  StatFile: TStringList;
-  Msg, SDate: String;
-  AFileName: String;
-  i, c: Integer;
-  ReplyMarkup: TReplyMarkup;
-  IDs: TIntegerHashSet;
-const
-  Step=20;
+
+procedure TWebhookBot.DoCallbackQueryGetUsers(ACallbackQuery: TCallbackQueryObj
+  );
 begin
-  if CurrentIsSimpleUser then
-    if not PublicStat or Scroll then
-      Exit;
-  ReplyMarkup:=TReplyMarkup.Create;
-  StatFile:=TStringList.Create;
-  try
-    AFileName:=FBrookAction.StatLogger.GetFileNameFromDate(ADate);
-    RequestWhenAnswer:=False;
-    try
-      if FileExists(AFileName) then
-      begin
-        DateTimeToString(SDate, 'dd-mm-yyyy', ADate);
-        StatFile.LoadFromFile(AFileName);
-        if not Scroll then
-        begin
-          ReplyMarkup.InlineKeyBoard:=CreateInlineKeyboardStat(ADate);
-          Msg:='*Statistics for '+SDate+'*'+LineEnding;
-          IDs:=TIntegerHashSet.create;
-          c:=0;
-          CalculateStat4Strings(StatFile, IDs, c);
-          Msg+=LineEnding+'Unique users: '+IntToStr(IDs.size)+', user events: '+
-            IntToStr(c);
-          IDs.Free;
-        end
-        else begin
-          ReplyMarkup.InlineKeyBoard:=CreateInlineKeyboardStat(ADate, StatFile.Count, Offset,
-            Step);
-          Msg:='*Statistics for '+SDate+'*'+LineEnding;
-          for i:=Offset to Offset+Step-1 do
-          begin
-            if i>=StatFile.Count then
-              Break;
-            Msg+=FormatStatRec(StatFile[i])+LineEnding;
-          end;
-        end;
-        editMessageText(Msg, pmMarkdown, True, ReplyMarkup);
-      end
-      else
-        editMessageText(str_SttstcsNtFnd, pmDefault, True, ReplyMarkup);
-    except
-      editMessageText(str_ErrFldTLdSttstcsFl, pmDefault, True, ReplyMarkup);
-    end;
-  finally
-    StatFile.Free;
-    ReplyMarkup.Free;
-  end;
+  DoUsers(ExtractDelimited(2, ACallbackQuery.Data, [' ']));
+  RequestWhenAnswer:=False;
+  answerCallbackQuery(ACallbackQuery.ID);
 end;
-}
+
 procedure TWebhookBot.DoGetStat(aFromDate: TDate; aToDate: TDate;
   Scroll: Boolean; Offset: Integer);
 var
@@ -498,10 +466,10 @@ begin
       end;
       if not Scroll then
       begin
-        ReplyMarkup.InlineKeyBoard:=CreateInlineKeyboardStat(aFromDate);
+        ReplyMarkup.InlineKeyBoard:=CreateInlineKeyboardStat(aFromDate, aToDate);
         aUsers:=0;
         aEvents:=0;
-        CalculateStat4Strings(aFromDate, aToDate, aUsers, aEvents);
+        CalculateStat(aFromDate, aToDate, aUsers, aEvents);
         Msg+=LineEnding+'Unique users: '+IntToStr(aUsers)+', user events: '+IntToStr(aEvents);
       end
       else
@@ -515,47 +483,52 @@ begin
     ReplyMarkup.Free;
   end;
 end;
-{
-procedure TWebhookBot.DoGetStatMonth(aDateInMonth: TDate);
+
+procedure TWebhookBot.DoGetUsers(aFromDate: TDate; aToDate: TDate);
 var
   Msg, SDate: String;
+  SDate1: String;
   aEvents, aUsers: Integer;
   ReplyMarkup: TReplyMarkup;
-  aDate: TDate;
-  aToDate, aFromDate: TDate;
+  aIDs: TStringList;
+  aStream: TStringStream;
 begin
   if CurrentIsSimpleUser then
-    if not PublicStat then
-      Exit;
+    Exit;
   ReplyMarkup:=TReplyMarkup.Create;
   try
     RequestWhenAnswer:=False;
     try
-      DateTimeToString(SDate, 'mm-yyyy', aFromDate);
-      Msg:='*Statistics for '+SDate+'*'+LineEnding;
-      ReplyMarkup.InlineKeyBoard:=CreateInlineKeyboardStat(aFromDate);
+      if aToDate<=aFromDate then
+      begin
+        DateTimeToString(SDate, 'dd-mm-yyyy', aFromDate);
+      end
+      else begin
+        DateTimeToString(SDate, 'dd-mm-yyyy', aFromDate);
+        DateTimeToString(SDate1, 'dd-mm-yyyy', aToDate);
+      end;
+      ReplyMarkup.InlineKeyBoard:=CreateInlineKeyboardStat(aFromDate, aToDate);
       aUsers:=0;
       aEvents:=0;
-      aToDate:=EndOfTheMonth(aDateInMonth);
-      aFromDate:=StartOfTheMonth(aDateInMonth);
-      CalculateStat4Strings(aFromDate, aToDate, aUsers, aEvents);
-      Msg+=LineEnding+'Unique users: '+IntToStr(aUsers)+', user events: '+IntToStr(aEvents);
-
-      repeat
-        CalculateStat4Strings(aDate, aDate, aUsers, aEvents);
-        DateTimeToString(SDate, 'dd-mm-yyyy', aDate);
-        Msg+=LineEnding+mdCode+SDate+mdCode+': _users_ '+IntToStr(aUsers)+'_, events_ '+IntToStr(aEvents);
-        aDate+=1;
-      until aDate>aToDate;
-      editMessageText(Msg, pmMarkdown, True, ReplyMarkup);
+      aIDs:=TStringList.Create;
+      try
+        CalculateStat(aFromDate, aToDate, aUsers, aEvents, aIDs);
+        Msg+=LineEnding+'Unique users: '+IntToStr(aUsers)+', user events: '+IntToStr(aEvents);
+        aStream:=TStringStream.Create(aIDs.Text);
+        sendDocumentStream(CurrentChatId, 'users.txt', aStream, Msg);
+      finally
+        aStream.Free;
+        aIDs.Free;
+      end;
     except
-      editMessageText(str_ErrFldTLdSttstcsFl, pmDefault, True, ReplyMarkup);
+      on E: Exception do
+        ErrorMessage('Error while get statistics: ['+E.ClassName+'] '+E.Message);
     end;
   finally
     ReplyMarkup.Free;
   end;
 end;
-}
+
 procedure TWebhookBot.DoGetStatMonth(aYear, aMonth: Word);
 var
   Msg, SDate: String;
@@ -578,7 +551,7 @@ begin
       ReplyMarkup.InlineKeyBoard:=CreateInlineKeyboardStatMonth(aFromDate);
       aUsers:=0;
       aEvents:=0;
-      CalculateStat4Strings(aFromDate, aToDate, aUsers, aEvents);
+      CalculateStat(aFromDate, aToDate, aUsers, aEvents);
       Msg+=LineEnding+'Unique users: '+IntToStr(aUsers)+', user events: '+IntToStr(aEvents);
       aDate:=aFromDate;
       sUsers:=0;
@@ -586,7 +559,7 @@ begin
       repeat
         aUsers:=0;
         aEvents:=0;
-        CalculateStat4Strings(aDate, aDate,  aUsers, aEvents);
+        CalculateStat(aDate, aDate,  aUsers, aEvents);
         DateTimeToString(SDate, 'dd-mm-yyyy', aDate);
         Msg+=LineEnding+mdCode+SDate+mdCode+' - _users:_ '+IntToStr(aUsers)+'_, events:_ '+IntToStr(aEvents);
         sEvents+=aEvents;
@@ -676,6 +649,43 @@ begin
       DoGetStatFile(aFromDate)
   else
     DoGetStat(aFromDate, aToDate, True, StrToIntDef(SOffset, 0));
+end;
+
+procedure TWebhookBot.DoUsers(const SDate: String);
+var
+  S: String;
+  i: SizeInt;
+  aToDate, aFromDate: TDate;
+begin
+  if not Assigned(FStatLogger) then
+    Exit;
+  aToDate:=0;
+  S:=Trim(SDate);
+  if (S=s_Today) or (S=EmptyStr) then
+    aFromDate:=Date
+  else
+    if S=s_Yesterday then
+      aFromDate:=Date-1
+    else begin
+      i:=Pos('/', S);
+      if i>0 then
+      begin
+        if not (TryStrToDate(LeftStr(S, i-1), aFromDate, StatDateFormat, '-') and
+          TryStrToDate(RightStr(S, Length(S)-i), aToDate)) then
+        begin
+          RequestWhenAnswer:=True;
+          sendMessage(str_EntrDtInFrmt);
+          Exit;
+        end
+      end
+      else
+        if not TryStrToDate(S, aFromDate, StatDateFormat, '-') then
+        begin
+          RequestWhenAnswer:=True;
+          sendMessage(str_EntrDtInFrmt);
+        end
+     end;
+  DoGetUsers(aFromDate, aToDate)
 end;
 
 function TWebhookBot.GetCallbackHandlers(const Command: String): TCallbackEvent;
@@ -875,23 +885,26 @@ begin
   btns.Add(btn);
 end;
 
-function TWebhookBot.CreateInlineKeyboardStat(ADate: TDate): TInlineKeyboard;
+function TWebhookBot.CreateInlineKeyboardStat(aFromDate, aToDate: TDate): TInlineKeyboard;
 var
   btns: TInlineKeyboardButtons;
-  S, PrevDate, NextDate, SMonth: String;
+  S, PrevDate, NextDate, FromDate, ToDate, SMonth: String;
 begin
-  DateTimeToString(PrevDate, StatDateFormat, ADate-1);
-  DateTimeToString(NextDate, StatDateFormat, ADate+1);
+  DateTimeToString(PrevDate, StatDateFormat, aFromDate-1);
+  DateTimeToString(NextDate, StatDateFormat, aFromDate+1);
+  DateTimeToString(FromDate, StatDateFormat, aFromDate);
+  DateTimeToString(ToDate, StatDateFormat, aToDate);
   Result:=TInlineKeyboard.Create;
   btns:=Result.Add;
-  DateTimeToString(S, StatDateFormat, ADate);
-  DateTimeToString(SMonth, StatMonthFormat, ADate);
+  DateTimeToString(S, StatDateFormat, aFromDate);
+  DateTimeToString(SMonth, StatMonthFormat, aFromDate);
   if not CurrentIsSimpleUser then
   begin
     btns.AddButtons([str_Today+' 🔃', s_GetStat+' '+s_Today, str_Monthly,
       s_GetStat+' '+SMonth, str_Browse, s_GetStat+' '+S+' '+'0']);
     btns:=Result.Add;
-    btns.AddButtons([str_PrevDay, s_GetStat+' '+PrevDate, str_NextDay, s_GetStat+' '+NextDate]);
+    btns.AddButtons([str_PrevDay, s_GetStat+' '+PrevDate, str_NextDay, s_GetStat+' '+NextDate,
+      str_Users, s_GetUsers+' '+FromDate+'/'+ToDate]);
   end
   else
     btns.AddButtons([str_Today+' 🔃', s_GetStat+' '+s_Today,
@@ -904,7 +917,7 @@ begin
   if SendFile then
     Result:=CreateInlineKeyboardStatFile
   else
-    Result:=CreateInlineKeyboardStat(ADate);
+    Result:=CreateInlineKeyboardStat(ADate, ADate);
 end;
 
 function TWebhookBot.CreateInlineKeyboardStatFile: TInlineKeyboard;
@@ -1047,6 +1060,11 @@ begin
       AHandled:=True;
       DoCallbackQueryStat(ACallback, True);
     end;
+  end;
+  if not CurrentIsSimpleUser and AnsiStartsStr(s_GetUsers+' ', ACallback.Data) then
+  begin
+    AHandled:=True;
+    DoCallbackQueryGetUsers(ACallback);
   end;
   StatLog(ACallback.Data, utCallbackQuery);
   if not AHandled then
