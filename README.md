@@ -3,7 +3,7 @@ Telegram plugin for brookframework
 
 Inherite of the class TBrookAction for convenient work with Telegram API. Help you to create bots.
 
-Implemented as inherited class of TBrookAction from [Brookframework](https://github.com/silvioprog/brookframework) 4.0.0
+Implemented as inherited class of TBrookAction from [Brookframework](https://github.com/risoflora/brookfreepascal)
 
 Depend on: [fp-telegram](https://github.com/Al-Muhandis/fp-telegram).
 
@@ -13,7 +13,7 @@ See example!
 --- --- --- 
 Brook framework плагин для Telegram API.
 
-Реализовано в виде класса-наследника TBrookAction из библиотеки [Brookframework](https://github.com/silvioprog/brookframework) 4.0.0. Поможет Вам в быстрой разработке бота для Telegram.
+Реализовано в виде класса-наследника TBrookAction из библиотеки [Brookframework](https://github.com/risoflora/brookfreepascal). Поможет Вам в быстрой разработке бота для Telegram.
 
 Зависит от [fp-telegram](https://github.com/Al-Muhandis/fp-telegram)
 
