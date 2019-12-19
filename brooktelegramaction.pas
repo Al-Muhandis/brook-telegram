@@ -29,10 +29,6 @@ type
     FOnUpdateMessage: TMessageEvent;
     FToken: String;
     FBot: TWebhookBot;
-    procedure BotSetCommandReply({%H-}ASender: TObject; const ACommand: String;
-      AMessage: TTelegramMessageObj);
-    procedure BotTerminateHandler({%H-}ASender: TObject; const {%H-}ACommand: String;
-      {%H-}AMessage: TTelegramMessageObj);
     procedure SetBot({%H-}AValue: TWebhookBot);
     procedure SetLogDebug(AValue: Boolean);
     procedure SetLogger(AValue: TEventLog);
@@ -46,7 +42,7 @@ type
     { Use Bot.EditOrSendMessage instead... }
     procedure EditOrSendMessage(const AMessage: String; AParseMode: TParseMode = pmDefault;
       ReplyMarkup: TReplyMarkup = nil; TryEdit: Boolean = False); deprecated;
-    function IsSimpleUser: Boolean;
+    function IsSimpleUser: Boolean; deprecated;
     function IsBanned: Boolean;
     procedure SaveFeedback(AFrom: TTelegramUserObj; AMessage: String); virtual; abstract;
   public
@@ -94,6 +90,8 @@ type
     procedure SetBrookAction(AValue: TWebhookAction);
     procedure SetCallbackHandlers(const Command: String; AValue: TCallbackEvent
       );
+    procedure SetCommandReply({%H-}ASender: TObject; const ACommand: String;
+      AMessage: TTelegramMessageObj);
     procedure SetHelpText(AValue: String);
     procedure SetOnRate(AValue: TRateEvent);
     procedure SetOnReceiveDeepLinking(AValue: TReceiveDeepLinkEvent);
@@ -101,6 +99,8 @@ type
     procedure SetStartText(AValue: String);
     procedure SetStatLogger(AValue: TtgStatLog);
     procedure SetUserStatus(ID: Int64; AValue: TUserStatus);
+    procedure TerminateHandler({%H-}ASender: TObject; const {%H-}ACommand: String;
+      {%H-}AMessage: TTelegramMessageObj);
     procedure TlgrmStartHandler({%H-}ASender: TObject; const {%H-}ACommand: String;
       {%H-}AMessage: TTelegramMessageObj);
     procedure TlgrmHelpHandler({%H-}ASender: TObject; const {%H-}ACommand: String;
@@ -289,6 +289,24 @@ procedure TWebhookBot.SetCallbackHandlers(const Command: String;
   AValue: TCallbackEvent);
 begin
   FCallbackHandlers.Items[Command]:=AValue;
+end;
+
+
+{ Caution! You must save this values in db or in configuration file! }
+procedure TWebhookBot.SetCommandReply(ASender: TObject; const ACommand: String;
+  AMessage: TTelegramMessageObj);
+var
+  S: String;
+begin
+  if CurrentIsSimpleUser then
+    Exit;
+  S:=ExtractArgPart(AMessage.Text, ACommand);
+  if ACommand=cmd_SetStart then
+    StartText:=S
+  else
+    if ACommand=cmd_SetHelp then
+      HelpText:=S;
+  sendMessage(str_TxtRplyIsScsChngd);
 end;
 
 procedure TWebhookBot.SetHelpText(AValue: String);
@@ -732,6 +750,16 @@ begin
   FUserPermissions.Values[IntToStr(ID)]:=UserStatusChars[AValue];
 end;
 
+procedure TWebhookBot.TerminateHandler(ASender: TObject; const ACommand: String;
+  AMessage: TTelegramMessageObj);
+begin
+  if CurrentIsSimpleUser then
+    Exit;
+  RequestWhenAnswer:=True;
+  sendMessage(str_BtApIsClsd);
+  BrookApp.Terminate;
+end;
+
 procedure TWebhookBot.TlgrmStartHandler(ASender: TObject;
   const ACommand: String; AMessage: TTelegramMessageObj);
 begin
@@ -761,7 +789,7 @@ begin
   ReplyMarkup:=TReplyMarkup.Create;
   try
     ReplyMarkup.ForceReply:=True;
-    sendMessage(FFeedbackText, pmMarkdown, True, ReplyMarkup);
+    sendMessage(cmd_Feedback+LineEnding+FFeedbackText, pmMarkdown, True, ReplyMarkup);
   finally
     ReplyMarkup.Free;
   end;
@@ -1008,6 +1036,9 @@ begin
   CommandHandlers[cmd_Rate]:=    @TlgrmRate;
   CommandHandlers[cmd_Stat]:=    @TlgrmStatHandler;
   CommandHandlers[cmd_StatF]:=   @TlgrmStatFHandler;
+  CommandHandlers[cmd_Terminate]:=@TerminateHandler;
+  CommandHandlers[cmd_SetStart]:= @SetCommandReply;
+  CommandHandlers[cmd_SetHelp]:=  @SetCommandReply;
   FCallbackHandlers:=TCallbackHandlersMap.create;
   FPublicStat:=False;
   FCallbackAnswered:=False;
@@ -1027,7 +1058,8 @@ begin
   if Assigned(AMessage.ReplyToMessage) and not UpdateProcessed then
   begin
     if Assigned(AMessage.ReplyToMessage.From) then
-      if SameText(AMessage.ReplyToMessage.From.Username, BotUsername) then
+      if SameText(AMessage.ReplyToMessage.From.Username, BotUsername) and
+        AnsiStartsStr(cmd_Feedback, AMessage.ReplyToMessage.Text) then
       begin
         sendMessage(Format(FFeedbackThanks, [AMessage.From.First_name]));
         With AMessage do
@@ -1173,33 +1205,6 @@ begin
   FOnUpdateMessage:=AValue;
 end;
 
-{ Caution! You must save this values in db or in configuration file! }
-procedure TWebhookAction.BotSetCommandReply(ASender: TObject;
-  const ACommand: String; AMessage: TTelegramMessageObj);
-var
-  S: String;
-begin
-  if IsSimpleUser then
-    Exit;
-  S:=ExtractArgPart(AMessage.Text, ACommand);
-  if ACommand=cmd_SetStart then
-    Bot.StartText:=S
-  else
-    if ACommand=cmd_SetHelp then
-      Bot.HelpText:=S;
-  Bot.sendMessage(str_TxtRplyIsScsChngd);
-end;
-
-procedure TWebhookAction.BotTerminateHandler(ASender: TObject;
-  const ACommand: String; AMessage: TTelegramMessageObj);
-begin
-  if IsSimpleUser then
-    Exit;
-  FBot.RequestWhenAnswer:=True;
-  FBot.sendMessage(str_BtApIsClsd);
-  BrookApp.Terminate;
-end;
-
 procedure TWebhookAction.SetBot(AValue: TWebhookBot);
 begin
 // todo Does It need a code here? Can it be so?
@@ -1265,9 +1270,6 @@ begin
   inherited Create;
   FLogDebug:=False;
   FBot:=TWebhookBot.Create(FToken, Self);
-  FBot.CommandHandlers[cmd_Terminate]:=@BotTerminateHandler;
-  FBot.CommandHandlers[cmd_SetStart]:= @BotSetCommandReply;
-  FBot.CommandHandlers[cmd_SetHelp]:=  @BotSetCommandReply;
 end;
 
 destructor TWebhookAction.Destroy;
