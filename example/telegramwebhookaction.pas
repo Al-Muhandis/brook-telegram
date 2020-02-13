@@ -42,7 +42,7 @@ end;
 procedure TMyAction.TlgrmMyUserIDCmdHandler(ASender: TObject;
   const ACommand: String; AMessage: TTelegramMessageObj);
 begin
-  EditOrSendMessage(MarkdownEscape(AMessage.From.First_name)+
+  Bot.EditOrSendMessage(MarkdownEscape(AMessage.From.First_name)+
     '! [Your](tg://user?id='+IntToStr(AMessage.From.ID)+') user ID is '+IntToStr(AMessage.From.ID),
     pmMarkdown);
 end;
@@ -50,7 +50,7 @@ end;
 procedure TMyAction.TlgrmMyHelpMarkdownHandler(ASender: TObject;
   const ACommand: String; AMessage: TTelegramMessageObj);
 begin
-  EditOrSendMessage('markdown'+LineEnding+'**bold text**'+LineEnding+'__italic text__'+LineEnding+
+  Bot.EditOrSendMessage('markdown'+LineEnding+'**bold text**'+LineEnding+'__italic text__'+LineEnding+
     '`inline fixed-width code`'+LineEnding+'```block_language'+LineEnding+
     'pre-formatted fixed-width code block```', pmDefault);
 end;
@@ -60,7 +60,7 @@ procedure TMyAction.TlgrmReceiveMessage(ASender: TObject;
   AMessage: TTelegramMessageObj);
 begin
   if (AMessage.Text<>EmptyStr) and not AMessage.Text.StartsWith('/') then
-    EditOrSendMessage('```'+LineEnding+AMessage.Text+LineEnding+'```', pmMarkdown, nil, True);
+    Bot.EditOrSendMessage('```'+LineEnding+AMessage.Text+LineEnding+'```', pmMarkdown, nil, True);
 end;
 
 constructor TMyAction.Create;

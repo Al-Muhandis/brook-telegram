@@ -42,6 +42,7 @@ type
     { Use Bot.EditOrSendMessage instead... }
     procedure EditOrSendMessage(const AMessage: String; AParseMode: TParseMode = pmDefault;
       ReplyMarkup: TReplyMarkup = nil; TryEdit: Boolean = False); deprecated;
+    { Please use Bot.CurrentIsSimpleUser instead }
     function IsSimpleUser: Boolean; deprecated;
     function IsBanned: Boolean;
     procedure SaveFeedback(AFrom: TTelegramUserObj; AMessage: String); virtual; abstract;
@@ -882,6 +883,8 @@ var
   EscMsg: String;
 begin
   if not CurrentIsSimpleUser then
+    Exit;
+  if AMessage=EmptyStr then
     Exit;
   EscMsg:=UTF8LeftStr(AMessage, 150);
   try
