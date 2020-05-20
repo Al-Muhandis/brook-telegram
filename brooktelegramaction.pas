@@ -634,7 +634,7 @@ begin
       if i>0 then
       begin
         if not (TryStrToDate(LeftStr(S, i-1), aFromDate, StatDateFormat, '-') and
-          TryStrToDate(RightStr(S, Length(S)-i), aToDate)) then
+          TryStrToDate(RightStr(S, Length(S)-i), aToDate, StatDateFormat, '-')) then
         begin
           RequestWhenAnswer:=True;
           sendMessage(str_EntrDtInFrmt);
