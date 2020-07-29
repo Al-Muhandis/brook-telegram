@@ -51,9 +51,11 @@ type
     constructor Create; override;
     destructor Destroy; override;
     procedure Post; override;
-    property Token: String read FToken write SetToken;
-    property OnCallbackQuery: TCallbackEvent read FOnCallbackQuery write SetOnCallbackQuery;
-    property OnUpdateMessage: TMessageEvent read FOnUpdateMessage write SetOnUpdateMessage;
+    property Token: String read FToken write SetToken; deprecated; // Use Bot.Token instead
+    { Use Bot.OnReceiveCallbackQuery instead }
+    property OnCallbackQuery: TCallbackEvent read FOnCallbackQuery write SetOnCallbackQuery; deprecated;
+    { Use Bot.OnReceiveMessageUpdate instead }
+    property OnUpdateMessage: TMessageEvent read FOnUpdateMessage write SetOnUpdateMessage; deprecated;
     property Logger: TEventLog read FLogger write SetLogger;
     property Bot: TWebhookBot read FBot write SetBot;
     property LogDebug: Boolean read FLogDebug write SetLogDebug;
@@ -831,6 +833,7 @@ begin
     DoStat(S, O)
   else
     SendStatInlineKeyboard();
+  UpdateProcessed:=True;
 end;
 
 procedure TWebhookBot.TlgrmStatFHandler(ASender: TObject;
