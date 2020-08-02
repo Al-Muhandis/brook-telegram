@@ -789,6 +789,7 @@ procedure TWebhookBot.TlgrmFeedback(ASender: TObject; const ACommand: String;
 var
   ReplyMarkup: TReplyMarkup;
 begin
+  UpdateProcessed:=True;
   ReplyMarkup:=TReplyMarkup.Create;
   try
     ReplyMarkup.ForceReply:=True;
