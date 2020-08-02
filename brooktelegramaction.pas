@@ -136,6 +136,7 @@ type
     property BrookAction: TWebhookAction read FBrookAction write SetBrookAction;
     function IsBanned(ChatID: Int64): Boolean; override;       
     function IsSimpleUser(ChatID: Int64): Boolean; override;
+    procedure SaveFeedback(AFrom: TTelegramUserObj; AMessage: String); virtual;
     procedure SetLanguage(const ALang: String); override;
   public
     function answerCallbackQuery(const CallbackQueryId: String; const Text: String=''; ShowAlert: Boolean=False;
@@ -1070,7 +1071,7 @@ begin
       begin
         sendMessage(Format(FFeedbackThanks, [AMessage.From.First_name]));
         With AMessage do
-          FBrookAction.SaveFeedback(From, Text);
+          SaveFeedback(From, Text);
       end;
     Exit;
   end;
@@ -1170,6 +1171,11 @@ function TWebhookBot.IsSimpleUser(ChatID: Int64): Boolean;
 begin
   Result:=(FUserPermissions.Values[IntToStr(ChatID)]<>'a') and
     (FUserPermissions.Values[IntToStr(ChatID)]<>'m');
+end;
+
+procedure TWebhookBot.SaveFeedback(AFrom: TTelegramUserObj; AMessage: String);
+begin
+  FBrookAction.SaveFeedback(AFrom, AMessage);
 end;
 
 procedure TWebhookBot.SetLanguage(const ALang: String);
