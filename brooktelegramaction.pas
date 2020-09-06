@@ -252,7 +252,7 @@ begin
       Result:=str_StatParseError
     else
       Result:=Ss[0]+'; '+'['+Ss[1]+'](tg://user?id='+Ss[1]+') '+
-        MarkdownEscape(Ss[2]+' {'+Ss[3]+' '+Ss[4]+'}')+ ' '+
+        MarkdownEscape(Ss[2]+' {'+TJSONUnicodeStringType(Ss[3]+' '+Ss[4])+'}')+ ' '+
         MarkdownEscape(Ss[5])+' <'+MarkdownEscape(Ss[6])+'> '+MarkdownEscape(JSONStringToString(Ss[7]));
   except
     Result:=str_StatParseError
@@ -894,9 +894,12 @@ begin
   EscMsg:=UTF8LeftStr(AMessage, 150);
   try
     if Assigned(CurrentUser)then
-      StatLogger.Log([IntToStr(CurrentChatId), '@'+CurrentUser.Username,
-        CurrentUser.First_name, CurrentUser.Last_name, CurrentUser.Language_code,
-        UpdateTypeAliases[UpdateType], '"'+StringToJSONString(EscMsg)+'"'])
+    begin
+      if (CurrentChatId>0) or UpdateProcessed then        // if message in the group and not processed then do not log
+        StatLogger.Log([IntToStr(CurrentChatId), '@'+CurrentUser.Username,
+          CurrentUser.First_name, CurrentUser.Last_name, CurrentUser.Language_code,
+          UpdateTypeAliases[UpdateType], '"'+StringToJSONString(EscMsg)+'"'])
+    end
     else begin
       if Assigned(CurrentChat) then
         FStatLogger.Log([IntToStr(CurrentChatId), '@'+CurrentChat.Username,
