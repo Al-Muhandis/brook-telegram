@@ -42,9 +42,8 @@ type
     { Use Bot.EditOrSendMessage instead... }
     procedure EditOrSendMessage(const AMessage: String; AParseMode: TParseMode = pmDefault;
       ReplyMarkup: TReplyMarkup = nil; TryEdit: Boolean = False); deprecated;
-    { Please use Bot.CurrentIsSimpleUser instead }
-    function IsSimpleUser: Boolean; deprecated;
-    function IsBanned: Boolean;
+    function IsSimpleUser: Boolean; deprecated; // Use Bot.CurrentIsSimpleUser instead
+    function IsBanned: Boolean; deprecated; // Use Bot.CurrentIsBanned instead
     procedure SaveFeedback(AFrom: TTelegramUserObj; AMessage: String); virtual; abstract;
   public
     function AppDir: String;
@@ -56,7 +55,7 @@ type
     property OnCallbackQuery: TCallbackEvent read FOnCallbackQuery write SetOnCallbackQuery; deprecated;
     { Use Bot.OnReceiveMessageUpdate instead }
     property OnUpdateMessage: TMessageEvent read FOnUpdateMessage write SetOnUpdateMessage; deprecated;
-    property Logger: TEventLog read FLogger write SetLogger;
+    property Logger: TEventLog read FLogger write SetLogger; deprecated; // Use Bot.Logger instead
     property Bot: TWebhookBot read FBot write SetBot;
     property LogDebug: Boolean read FLogDebug write SetLogDebug;
   end;
@@ -134,7 +133,9 @@ type
       AChosenInlineResult: TTelegramChosenInlineResultObj); override;
     procedure DoReceiveInlineQuery(AnInlineQuery: TTelegramInlineQueryObj); override;
     property BrookAction: TWebhookAction read FBrookAction write SetBrookAction;
-    function IsBanned(ChatID: Int64): Boolean; override;       
+    function IsAdminUser(ChatID: Int64): Boolean; override;
+    function IsBanned(ChatID: Int64): Boolean; override;                        
+    function IsBotUser(ChatID: Int64): Boolean; override;
     function IsSimpleUser(ChatID: Int64): Boolean; override;
     procedure SaveFeedback(AFrom: TTelegramUserObj; AMessage: String); virtual;
     procedure SetLanguage(const ALang: String); override;
@@ -302,7 +303,7 @@ procedure TWebhookBot.SetCommandReply(ASender: TObject; const ACommand: String;
 var
   S: String;
 begin
-  if CurrentIsSimpleUser then
+  if not CurrentIsAdminUser then
     Exit;
   S:=ExtractArgPart(AMessage.Text, ACommand);
   if ACommand=cmd_SetStart then
@@ -469,7 +470,7 @@ var
   aEvents, aUsers: Integer;
   ReplyMarkup: TReplyMarkup;
 begin
-  if CurrentIsSimpleUser then
+  if not CurrentIsAdminUser then
     if not PublicStat or Scroll then
       Exit;
   ReplyMarkup:=TReplyMarkup.Create;
@@ -515,7 +516,7 @@ var
   aIDs: TStringList;
   aStream: TStringStream;
 begin
-  if CurrentIsSimpleUser then
+  if not CurrentIsAdminUser then
     Exit;
   ReplyMarkup:=TReplyMarkup.Create;
   try
@@ -532,6 +533,7 @@ begin
       ReplyMarkup.InlineKeyBoard:=CreateInlineKeyboardStat(aFromDate, aToDate);
       aUsers:=0;
       aEvents:=0;
+      Msg:=EmptyStr;
       aIDs:=TStringList.Create;
       try
         CalculateStat(aFromDate, aToDate, aUsers, aEvents, aIDs);
@@ -559,7 +561,7 @@ var
   aDate: TDate;
   aToDate, aFromDate: TDate;
 begin
-  if CurrentIsSimpleUser then
+  if not CurrentIsAdminUser then
     if not PublicStat then
       Exit;
   ReplyMarkup:=TReplyMarkup.Create;
@@ -604,7 +606,7 @@ procedure TWebhookBot.DoGetStatFile(ADate: TDate);
 var
   ReplyMarkup: TReplyMarkup;
 begin
-  if CurrentIsSimpleUser then
+  if not CurrentIsAdminUser then
     Exit;
   ReplyMarkup:=TReplyMarkup.Create;
   try
@@ -757,7 +759,7 @@ end;
 procedure TWebhookBot.TerminateHandler(ASender: TObject; const ACommand: String;
   AMessage: TTelegramMessageObj);
 begin
-  if CurrentIsSimpleUser then
+  if not CurrentIsAdminUser then
     Exit;
   RequestWhenAnswer:=True;
   sendMessage(str_BtApIsClsd);
@@ -826,7 +828,7 @@ procedure TWebhookBot.TlgrmStatHandler(ASender: TObject;
 var
   S, O: String;
 begin
-  if not PublicStat and CurrentIsSimpleUser then
+  if not (PublicStat or CurrentIsAdminUser) then
     Exit;
   RequestWhenAnswer:=True;
   S:=ExtractDelimited(2, AMessage.Text, [' ']);
@@ -843,7 +845,7 @@ procedure TWebhookBot.TlgrmStatFHandler(ASender: TObject;
 var
   S: String;
 begin
-  if CurrentIsSimpleUser then
+  if not CurrentIsAdminUser then
     Exit;
   RequestWhenAnswer:=True;
   S:=ExtractDelimited(2, AMessage.Text, [' ']);
@@ -887,7 +889,7 @@ procedure TWebhookBot.StatLog(const AMessage: String; UpdateType: TUpdateType);
 var
   EscMsg: String;
 begin
-  if not CurrentIsSimpleUser then
+  if CurrentIsAdminUser or CurrentIsBotUser then
     Exit;
   if AMessage=EmptyStr then
     Exit;
@@ -937,7 +939,7 @@ begin
   btns:=Result.Add;
   DateTimeToString(S, StatDateFormat, aFromDate);
   DateTimeToString(SMonth, StatMonthFormat, aFromDate);
-  if not CurrentIsSimpleUser then
+  if CurrentIsAdminUser then
   begin
     btns.AddButtons([str_Today+' 🔃', s_GetStat+' '+s_Today, str_Monthly,
       s_GetStat+' '+SMonth, str_Browse, s_GetStat+' '+S+' '+'0']);
@@ -980,7 +982,7 @@ begin
   Result:=TInlineKeyboard.Create;
   btns:=Result.Add;
   DateTimeToString(S, StatDateFormat, ADate);
-  if not CurrentIsSimpleUser then
+  if CurrentIsAdminUser then
   begin
     btns.AddButtons([str_Today+' 🔃', s_GetStat+' '+s_Yesterday, str_Browse+' '+S, s_GetStat+' '+S+' '+'0']);
     btns:=Result.Add;
@@ -1091,7 +1093,7 @@ begin
   AHandled:=False;
   FCallbackAnswered:=False;
   inherited DoReceiveCallbackQuery(ACallback);
-  if not CurrentIsSimpleUser or PublicStat then
+  if CurrentIsAdminUser or PublicStat then
   begin
     if AnsiStartsStr(s_GetStat+' ', ACallback.Data) then
     begin
@@ -1104,7 +1106,7 @@ begin
       DoCallbackQueryStat(ACallback, True);
     end;
   end;
-  if not CurrentIsSimpleUser and AnsiStartsStr(s_GetUsers+' ', ACallback.Data) then
+  if CurrentIsAdminUser and AnsiStartsStr(s_GetUsers+' ', ACallback.Data) then
   begin
     AHandled:=True;
     DoCallbackQueryGetUsers(ACallback);
@@ -1149,6 +1151,12 @@ begin
   StatLog(AnInlineQuery.Query, utInlineQuery);
 end;
 
+function TWebhookBot.IsAdminUser(ChatID: Int64): Boolean;
+begin
+  Result:=(FUserPermissions.Values[IntToStr(ChatID)]='a') or
+    (FUserPermissions.Values[IntToStr(ChatID)]='m');
+end;
+
 procedure TWebhookBot.EditOrSendMessage(const AMessage: String;
   AParseMode: TParseMode; ReplyMarkup: TReplyMarkup; TryEdit: Boolean);
 var
@@ -1168,6 +1176,11 @@ end;
 function TWebhookBot.IsBanned(ChatID: Int64): Boolean;
 begin
   Result:=FUserPermissions.Values[IntToStr(ChatID)]='b'
+end;
+
+function TWebhookBot.IsBotUser(ChatID: Int64): Boolean;
+begin
+  Result:=FUserPermissions.Values[IntToStr(ChatID)]='r'; // robot
 end;
 
 function TWebhookBot.IsSimpleUser(ChatID: Int64): Boolean;
