@@ -42,7 +42,7 @@ type
       ReplyMarkup: TReplyMarkup = nil; TryEdit: Boolean = False); deprecated;
     function IsSimpleUser: Boolean; deprecated; // Use Bot.CurrentIsSimpleUser instead
     function IsBanned: Boolean; deprecated; // Use Bot.CurrentIsBanned instead
-    procedure SaveFeedback(AFrom: TTelegramUserObj; AMessage: String); virtual; abstract;
+    procedure SaveFeedback(AFrom: TTelegramUserObj; AMessage: String); virtual; abstract; deprecated;
   public
     function AppDir: String;
     constructor Create; override;
@@ -55,7 +55,7 @@ type
     property OnUpdateMessage: TMessageEvent read FOnUpdateMessage write SetOnUpdateMessage; deprecated;
     property Logger: TEventLog read FLogger write SetLogger; deprecated; // Use Bot.Logger instead
     property Bot: TWebhookBot read FBot write SetBot;
-    property LogDebug: Boolean read FLogDebug write SetLogDebug;
+    property LogDebug: Boolean read FLogDebug write SetLogDebug; deprecated;
   end;
 
   { TWebhookBot }
@@ -1050,7 +1050,7 @@ begin
   except
     on E:Exception do
     begin
-      ErrorMessage('Error while parse json string ('+E.ClassName+': '+E.Message+'): '+aUpdate);
+      ErrorMessage('Error while parse json string ('+E.ClassName+': '+E.Message+')');
       Exit;
     end;
   end;
