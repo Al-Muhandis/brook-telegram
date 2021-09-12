@@ -14,6 +14,7 @@ type
 
   TTelegramPaymentsConf = class
   private
+    FCurrency: String;
     FDisabled: Boolean;
     FPrice: Integer;
     FToken: String;
@@ -21,6 +22,7 @@ type
     property Token: String read FToken write FToken;
     property Price: Integer read FPrice write FPrice;
     property Disabled: Boolean read FDisabled write FDisabled;
+    property Currency: String read FCurrency write FCurrency;
   end;
 
   { TTelegramConf }
@@ -98,6 +100,7 @@ type
   private
     FAdverts: TStrings;
     FDebug: Boolean;
+    FFreeLimit: Integer;
     FTelegram: TTelegramConf;
     procedure SetAdverts(AValue: TStrings);
   public
@@ -107,6 +110,7 @@ type
     property Telegram: TTelegramConf read FTelegram write FTelegram;
     property Adverts: TStrings read FAdverts write SetAdverts;
     property Debug: Boolean read FDebug write FDebug;
+    property FreeLimit: Integer read FFreeLimit write FFreeLimit;
   end;
 
 procedure LoadFromJSON(AObject: TObject; const AFileName: String);

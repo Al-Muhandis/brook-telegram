@@ -35,9 +35,7 @@ type
     procedure SetOnCallbackQuery(AValue: TCallbackEvent);
     procedure SetOnUpdateMessage(AValue: TMessageEvent);
     procedure SetToken(AValue: String);
-    procedure LogMessage({%H-}ASender: TObject; EventType: TEventType; const Msg: String);
   protected
-    procedure BotCallbackQuery(ACallback: TCallbackQueryObj); virtual; deprecated;
     procedure BotMessageHandler(AMessage: TTelegramMessageObj); virtual;
     { Use Bot.EditOrSendMessage instead... }
     procedure EditOrSendMessage(const AMessage: String; AParseMode: TParseMode = pmDefault;
@@ -147,6 +145,7 @@ type
     constructor Create(const AToken: String; AWebhookAction: TWebhookAction);
     destructor Destroy; override;
     procedure DoReceiveDeepLinking(const AParameter: String);
+    function DoReceiveUpdate(const aUpdate: String): Boolean; overload;
     procedure EditOrSendMessage(const AMessage: String; AParseMode: TParseMode = pmDefault;
       ReplyMarkup: TReplyMarkup = nil; TryEdit: Boolean = False);
     procedure LoadUserStatusValues(AStrings: TStrings);
@@ -1030,6 +1029,33 @@ begin
     FOnReceiveDeepLinking(AParameter);
 end;
 
+function TWebhookBot.DoReceiveUpdate(const aUpdate: String): Boolean;
+var
+  lParser: TJSONParser;
+begin
+  Result:=False;
+  if aUpdate.IsEmpty then
+  begin
+    ErrorMessage('POST data Content of HTTP request is empty!');
+    Exit;
+  end;
+  lParser := TJSONParser.Create(aUpdate, DefaultOptions);
+  try
+    try
+      DoReceiveUpdate(TTelegramUpdateObj.CreateFromJSONObject(lParser.Parse as TJSONObject) as TTelegramUpdateObj);
+      Result:=True;
+    except
+      on E:Exception do
+      begin
+        ErrorMessage('Error while parse json string ('+E.ClassName+': '+E.Message+'): '+aUpdate);
+        Exit;
+      end;
+    end;
+  finally
+    lParser.Free;
+  end;
+end;
+
 constructor TWebhookBot.Create(const AToken: String;
   AWebhookAction: TWebhookAction);
 begin
@@ -1126,8 +1152,6 @@ begin
       RequestWhenAnswer:=AFlag;
       AHandled:=True;
     end;
-{    if not AHandled then
-      FBrookAction.BotCallbackQuery(ACallback);}
   end;
 end;
 
@@ -1266,24 +1290,10 @@ begin
   Result:=IncludeTrailingPathDelimiter(ExtractFileDir(ParamStr(0)));
 end;
 
-procedure TWebhookAction.BotCallbackQuery(ACallback: TCallbackQueryObj);
-begin
-  if Assigned(FOnCallbackQuery) then
-    FOnCallbackQuery(Self, ACallback);
-end;
-
 procedure TWebhookAction.BotMessageHandler(AMessage: TTelegramMessageObj);
 begin
   if Assigned(FOnUpdateMessage) then
     FOnUpdateMessage(Self, AMessage);
-end;
-
-procedure TWebhookAction.LogMessage(ASender: TObject; EventType: TEventType; const Msg: String);
-begin
-  if not FLogDebug and (EventType=etDebug) then
-    Exit;
-  if Assigned(FLogger) then
-    Logger.Log(EventType, Msg);
 end;
 
 { Sometimes, if the message is sent to the result of the CallBack call,
@@ -1310,38 +1320,13 @@ end;
 procedure TWebhookAction.Post;
 var
   Msg: String;
-  lParser: TJSONParser;
-  AnUpdate: TTelegramUpdateObj;
 begin
   Msg:=HttpRequest.Content;
-  LogMessage(Self, etDebug, 'Recieve the update (Webhook): '+Msg);
-  if Msg<>EmptyStr then
+  if Bot.DoReceiveUpdate(Msg) then
   begin
-    lParser := TJSONParser.Create(Msg, DefaultOptions);
-    try
-      try
-        AnUpdate :=
-          TTelegramUpdateObj.CreateFromJSONObject(lParser.Parse as TJSONObject) as TTelegramUpdateObj;
-      except
-        on E:Exception do
-        begin
-          LogMessage(Self, etError, 'Error while parse json string ('+E.ClassName+': '+E.Message+
-            '): '+Msg);
-          Exit;
-        end;
-      end;
-    finally
-      lParser.Free;
-    end;
-    if Assigned(AnUpdate) then
-    begin
-      Bot.DoReceiveUpdate(AnUpdate);
-      HttpResponse.ContentType:=BROOK_HTTP_CONTENT_TYPE_APP_JSON;
-      Write(FBot.RequestBody);
-    end;
-  end
-  else
-    LogMessage(Self, etError, 'POST data Content of HTTP request is empty!');
+    HttpResponse.ContentType:=BROOK_HTTP_CONTENT_TYPE_APP_JSON;
+    Write(FBot.RequestBody);
+  end;
 end;
 
 end.
