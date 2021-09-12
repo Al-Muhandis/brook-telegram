@@ -1031,7 +1031,7 @@ end;
 
 function TWebhookBot.DoReceiveUpdate(const aUpdate: String): Boolean;
 var
-  lParser: TJSONParser;
+  aJSON: TJSONObject;
 begin
   Result:=False;
   if aUpdate.IsEmpty then
@@ -1039,20 +1039,20 @@ begin
     ErrorMessage('POST data Content of HTTP request is empty!');
     Exit;
   end;
-  lParser := TJSONParser.Create(aUpdate, DefaultOptions);
   try
+    aJSON:=GetJSON(aUpdate) as TJSONObject;
     try
-      DoReceiveUpdate(TTelegramUpdateObj.CreateFromJSONObject(lParser.Parse as TJSONObject) as TTelegramUpdateObj);
+      DoReceiveUpdate(TTelegramUpdateObj.CreateFromJSONObject(aJSON) as TTelegramUpdateObj);
       Result:=True;
-    except
-      on E:Exception do
-      begin
-        ErrorMessage('Error while parse json string ('+E.ClassName+': '+E.Message+'): '+aUpdate);
-        Exit;
-      end;
+    finally
+      aJSON.Free;
     end;
-  finally
-    lParser.Free;
+  except
+    on E:Exception do
+    begin
+      ErrorMessage('Error while parse json string ('+E.ClassName+': '+E.Message+'): '+aUpdate);
+      Exit;
+    end;
   end;
 end;
 
