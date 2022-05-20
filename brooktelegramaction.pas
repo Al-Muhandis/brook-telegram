@@ -42,7 +42,6 @@ type
       ReplyMarkup: TReplyMarkup = nil; TryEdit: Boolean = False); deprecated;
     function IsSimpleUser: Boolean; deprecated; // Use Bot.CurrentIsSimpleUser instead
     function IsBanned: Boolean; deprecated; // Use Bot.CurrentIsBanned instead
-    procedure SaveFeedback(AFrom: TTelegramUserObj; AMessage: String); virtual; abstract; deprecated;
   public
     function AppDir: String;
     constructor Create; override;
@@ -69,6 +68,7 @@ type
     FFeedbackThanks: String;
     FOnRate: TRateEvent;
     FOnReceiveDeepLinking: TReceiveDeepLinkEvent;
+    FOnReceivFeedback: TMessageEvent;
     FPublicStat: Boolean;
     FStartText: String;
     FStatLogger: TtgStatLog;
@@ -123,7 +123,8 @@ type
     function CreateInlineKeyboardStatFile: TInlineKeyboard;
     function CreateInlineKeyboardStatMonth(ADate: TDate): TInlineKeyboard;
     function CreateInlineKeyboardStat(ADate: TDate; Len: Integer; Offset: Integer = 0;
-      Step: Integer = 20): TInlineKeyboard; overload;
+      Step: Integer = 20): TInlineKeyboard; overload;        
+    procedure DoReceiveFeedback(aMessage: TTelegramMessageObj);
     procedure DoReceiveMessageUpdate(AMessage: TTelegramMessageObj); override;
     procedure DoReceiveCallbackQuery(ACallback: TCallbackQueryObj); override;
     procedure DoReceiveChannelPost(AChannelPost: TTelegramMessageObj); override;
@@ -135,7 +136,7 @@ type
     function IsBanned(ChatID: Int64): Boolean; override;                        
     function IsBotUser(ChatID: Int64): Boolean; override;
     function IsSimpleUser(ChatID: Int64): Boolean; override;
-    procedure SaveFeedback(AFrom: TTelegramUserObj; AMessage: String); virtual;
+    procedure SaveFeedback({%H-}AFrom: TTelegramUserObj; {%H-}AMessage: String); virtual;
     procedure SetLanguage(const ALang: String); override;
   public
     function answerCallbackQuery(const CallbackQueryId: String; const Text: String=''; ShowAlert: Boolean=False;
@@ -158,6 +159,7 @@ type
     property UserStatus [ID: Int64]: TUserStatus read GetUserStatus write SetUserStatus;
     property OnRate: TRateEvent read FOnRate write SetOnRate;
     property OnReceiveDeepLinking: TReceiveDeepLinkEvent read FOnReceiveDeepLinking write SetOnReceiveDeepLinking;
+    property OnReceivFeedback: TMessageEvent read FOnReceivFeedback write FOnReceivFeedback;
     property PublicStat: Boolean read FPublicStat write SetPublicStat;
     property StatLogger: TtgStatLog read FStatLogger write SetStatLogger;
   end;
@@ -168,7 +170,7 @@ function FormatStatRec(const S: String): String;
 implementation
 { Please define ni18n (No i18n) for excluding translate unit from uses and exclude i18n support }
 uses jsonparser, BrookHttpConsts, strutils, BrookApplication, jsonscanner{$IFNDEF ni18n},
-  Translations{$ENDIF}, tgutils, LazUTF8, dateutils;
+  Translations{$ENDIF}, LazUTF8, tgutils, dateutils;
 
 // Please use i18n for localization *** Пожалуйста, используйте i18n для локализации
 resourcestring
@@ -1023,6 +1025,14 @@ begin
     str_PrevDay, s_GetStat+' '+PrevDate+' '+'0', str_NextDay, s_GetStat+' '+NextDate+' '+'0']);
 end;
 
+procedure TWebhookBot.DoReceiveFeedback(aMessage: TTelegramMessageObj);
+begin
+  if Assigned(FOnReceivFeedback) then
+    FOnReceivFeedback(Self, aMessage);
+  With AMessage do
+    SaveFeedback(From, Text);
+end;
+
 procedure TWebhookBot.DoReceiveDeepLinking(const AParameter: String);
 begin
   if Assigned(FOnReceiveDeepLinking) then
@@ -1101,8 +1111,7 @@ begin
         AnsiStartsStr(cmd_Feedback, AMessage.ReplyToMessage.Text) then
       begin
         sendMessage(Format(FFeedbackThanks, [AMessage.From.First_name]));
-        With AMessage do
-          SaveFeedback(From, Text);
+        DoReceiveFeedback(aMessage);
       end;
     Exit;
   end;
@@ -1215,7 +1224,7 @@ end;
 
 procedure TWebhookBot.SaveFeedback(AFrom: TTelegramUserObj; AMessage: String);
 begin
-  FBrookAction.SaveFeedback(AFrom, AMessage);
+  // abstract method. Can be overrided
 end;
 
 procedure TWebhookBot.SetLanguage(const ALang: String);
