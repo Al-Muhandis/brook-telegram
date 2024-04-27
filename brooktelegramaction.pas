@@ -60,6 +60,7 @@ type
   { TWebhookBot }
   TWebhookBot = class(TTelegramSender)
   private
+    FAutoTranslate: Boolean;
     FCallbackAnswered: Boolean;
     FCallbackHandlers: TCallbackHandlersMap;
     FHelpText: String;
@@ -113,7 +114,6 @@ type
       const {%H-}ACommand: String; AMessage: TTelegramMessageObj);
     procedure TlgrmStatFHandler({%H-}ASender: TObject;
       const {%H-}ACommand: String; AMessage: TTelegramMessageObj);
-    procedure LangTranslate(const {%H-}ALang: String);
     procedure SendStatInlineKeyboard(SendFile: Boolean = False);
     procedure StatLog(const AMessage: String; UpdateType: TUpdateType);
   protected
@@ -148,8 +148,10 @@ type
     procedure DoReceiveDeepLinking(const AParameter: String);
     function DoReceiveUpdate(const aUpdate: String): Boolean; overload;
     procedure EditOrSendMessage(const AMessage: String; AParseMode: TParseMode = pmDefault;
-      ReplyMarkup: TReplyMarkup = nil; TryEdit: Boolean = False);
+      ReplyMarkup: TReplyMarkup = nil; TryEdit: Boolean = False); 
+    procedure LangTranslate(const {%H-}ALang: String);
     procedure LoadUserStatusValues(AStrings: TStrings);
+    property AutoTranslate: Boolean read FAutoTranslate write FAutoTranslate;
     property CallbackHandlers [const Command: String]: TCallbackEvent read GetCallbackHandlers
       write SetCallbackHandlers;  // It can create command handlers by assigning their to array elements
     property StartText: String read FStartText write SetStartText; // Text for /start command reply
@@ -1091,6 +1093,7 @@ begin
   FCallbackHandlers:=TCallbackHandlersMap.create;
   FPublicStat:=False;
   FCallbackAnswered:=False;
+  FAutoTranslate:=True;
 end;
 
 destructor TWebhookBot.Destroy;
@@ -1230,7 +1233,8 @@ end;
 procedure TWebhookBot.SetLanguage(const ALang: String);
 begin
   inherited SetLanguage(ALang);
-  LangTranslate(ALang);
+  if FAutoTranslate then
+    LangTranslate(ALang);
 end;
 
 function TWebhookBot.answerCallbackQuery(const CallbackQueryId: String; const Text: String; ShowAlert: Boolean;
