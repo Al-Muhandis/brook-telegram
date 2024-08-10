@@ -1044,6 +1044,7 @@ end;
 function TWebhookBot.DoReceiveUpdate(const aUpdate: String): Boolean;
 var
   aJSON: TJSONObject;
+  aUpdateObject: TTelegramUpdateObj;
 begin
   Result:=False;
   if aUpdate.IsEmpty then
@@ -1054,8 +1055,7 @@ begin
   try
     aJSON:=GetJSON(aUpdate) as TJSONObject;
     try
-      DoReceiveUpdate(TTelegramUpdateObj.CreateFromJSONObject(aJSON) as TTelegramUpdateObj);
-      Result:=True;
+      aUpdateObject:=TTelegramUpdateObj.CreateFromJSONObject(aJSON) as TTelegramUpdateObj;
     finally
       aJSON.Free;
     end;
@@ -1066,6 +1066,8 @@ begin
       Exit;
     end;
   end;
+  DoReceiveUpdate(aUpdateObject);
+  Result:=True;
 end;
 
 constructor TWebhookBot.Create(const AToken: String;
@@ -1129,41 +1131,46 @@ var
   H: TCallbackEvent;
 begin
   AHandled:=False;
-  FCallbackAnswered:=False;
-  inherited DoReceiveCallbackQuery(ACallback);
-  if CurrentIsAdminUser or PublicStat then
-  begin
-    if AnsiStartsStr(s_GetStat+' ', ACallback.Data) then
+  FCallbackAnswered:=False;     
+  try
+    inherited DoReceiveCallbackQuery(ACallback);
+    if CurrentIsAdminUser or PublicStat then
+    begin
+      if AnsiStartsStr(s_GetStat+' ', ACallback.Data) then
+      begin
+        AHandled:=True;
+        DoCallbackQueryStat(ACallback);
+      end;
+      if AnsiStartsStr(s_GetStat+s_File+' ', ACallback.Data) then
+      begin
+        AHandled:=True;
+        DoCallbackQueryStat(ACallback, True);
+      end;
+    end;
+    if CurrentIsAdminUser and AnsiStartsStr(s_GetUsers+' ', ACallback.Data) then
     begin
       AHandled:=True;
-      DoCallbackQueryStat(ACallback);
+      DoCallbackQueryGetUsers(ACallback);
     end;
-    if AnsiStartsStr(s_GetStat+s_File+' ', ACallback.Data) then
+    StatLog(ACallback.Data, utCallbackQuery);
+    if not AHandled then
     begin
-      AHandled:=True;
-      DoCallbackQueryStat(ACallback, True);
+      AFlag:=RequestWhenAnswer;
+      ACommand:=ExtractWord(1, ACallback.Data, [' ']);
+      if FCallbackHandlers.contains(ACommand) then
+      begin
+        H:=FCallbackHandlers.Items[ACommand];
+        H(Self, ACallback);
+        RequestWhenAnswer:=False;
+        if not FCallbackAnswered then
+          answerCallbackQuery(ACallback.ID); // if user do not call this in callback procedure
+        RequestWhenAnswer:=AFlag;
+        AHandled:=True;
+      end;
     end;
-  end;
-  if CurrentIsAdminUser and AnsiStartsStr(s_GetUsers+' ', ACallback.Data) then
-  begin
-    AHandled:=True;
-    DoCallbackQueryGetUsers(ACallback);
-  end;
-  StatLog(ACallback.Data, utCallbackQuery);
-  if not AHandled then
-  begin
-    AFlag:=RequestWhenAnswer;
-    ACommand:=ExtractWord(1, ACallback.Data, [' ']);
-    if FCallbackHandlers.contains(ACommand) then
-    begin
-      H:=FCallbackHandlers.Items[ACommand];
-      H(Self, ACallback);
-      RequestWhenAnswer:=False;
-      if not FCallbackAnswered then
-        answerCallbackQuery(ACallback.ID); // if user do not call this in callback procedure
-      RequestWhenAnswer:=AFlag;
-      AHandled:=True;
-    end;
+  except
+    on E:Exception do
+      Logger.Error('Error TWebhookBot.DoReceiveCallbackQuery ('+E.ClassName+': '+E.Message+')');
   end;
 end;
 
