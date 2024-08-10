@@ -43,7 +43,7 @@ type
     function IsSimpleUser: Boolean; deprecated; // Use Bot.CurrentIsSimpleUser instead
     function IsBanned: Boolean; deprecated; // Use Bot.CurrentIsBanned instead
   public
-    function AppDir: String;
+    class function AppDir: String;
     constructor Create; override;
     destructor Destroy; override;
     procedure Post; override;
@@ -1305,7 +1305,7 @@ begin
   Result:=Bot.CurrentIsBanned;
 end;
 
-function TWebhookAction.AppDir: String;
+class function TWebhookAction.AppDir: String;
 begin
   Result:=IncludeTrailingPathDelimiter(ExtractFileDir(ParamStr(0)));
 end;
