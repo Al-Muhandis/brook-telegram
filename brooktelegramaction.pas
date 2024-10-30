@@ -256,7 +256,7 @@ begin
       Result:=str_StatParseError
     else
       Result:=Ss[0]+'; '+'['+Ss[1]+'](tg://user?id='+Ss[1]+') '+
-        MarkdownEscape(Ss[2]+' {'+TJSONUnicodeStringType(Ss[3]+' '+Ss[4])+'}')+ ' '+
+        MarkdownEscape(Ss[2]{%H-}+' {'+TJSONUnicodeStringType(Ss[3]+' '+Ss[4]{%H-})+'}'{%H-})+ ' '+
         MarkdownEscape(Ss[5])+' <'+MarkdownEscape(Ss[6])+'> '+MarkdownEscape(JSONStringToString(Ss[7]));
   except
     Result:=str_StatParseError
