@@ -68,7 +68,7 @@ begin
   inherited Create;
   { This isnt real telegram token! Please get token from
   https://core.telegram.org/bots#botfather }
-  Token:='123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11';
+  Bot.Token:='123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11';
   Bot.StartText:='Hi! It is simplest HelloBot based on brookframework and fp-telegram!';
   Bot.HelpText:=
     'This help text for the bot... See code at https://github.com/Al-Muhandis/brook-telegram '+
@@ -85,7 +85,7 @@ begin
   { You can do not create this log. If its value is nil,
   then the logging just will not be maintained }
   Bot.StatLogger.Paused:=False; // run statistics log
-  Logger:=BLogger;
+  Bot.Logger:=BLogger;
   Bot.UpdateLogger:=TtgStatLog.Create(nil);
   Bot.UpdateLogger.FilePrefix:='stat';
   Bot.UpdateLogger.FilePostfix:='.log';
@@ -96,7 +96,7 @@ end;
 procedure TMyAction.Post;
 begin
   { If is is not a valid token passed from parameterized url then error raised }
-  if AnsiSameStr({$IFNDEF bf30}Variables{$ELSE}Values{$ENDIF}.Values['token'], Token) then
+  if AnsiSameStr({$IFNDEF bf30}Variables{$ELSE}Values{$ENDIF}.Values['token'], Bot.Token) then
     inherited Post
   else
     raise EBrookHttp404.Create('');
