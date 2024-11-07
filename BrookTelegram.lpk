@@ -10,7 +10,7 @@
         <UnitOutputDirectory Value="lib\$(TargetCPU)-$(TargetOS)"/>
       </SearchPaths>
     </CompilerOptions>
-    <Version Release="1"/>
+    <Version Release="2"/>
     <Files>
       <Item>
         <Filename Value="brooktelegramaction.pas"/>

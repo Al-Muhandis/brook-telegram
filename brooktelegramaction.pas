@@ -67,20 +67,14 @@ type
     function GetCallbackHandlers(const Command: String): TCallbackEvent;
     function GetUserStatus(ID: Int64): TUserStatus;
     procedure SendStatLog(ADate: TDate = 0; AReplyMarkup: TReplyMarkup = nil);
-    procedure SetBrookAction(AValue: TWebhookAction);
     procedure SetCallbackHandlers(const Command: String; AValue: TCallbackEvent
       );
     procedure SetCommandReply({%H-}ASender: TObject; const ACommand: String;
       AMessage: TTelegramMessageObj);
-    procedure SetHelpText(AValue: String);
-    procedure SetOnRate(AValue: TRateEvent);
     procedure SetOnReceiveDeepLinking(AValue: TReceiveDeepLinkEvent);
     procedure SetPublicStat(AValue: Boolean);
-    procedure SetStartText(AValue: String);
     procedure SetStatLogger(AValue: TtgStatLog);
     procedure SetUserStatus(ID: Int64; AValue: TUserStatus);
-    procedure TerminateHandler({%H-}ASender: TObject; const {%H-}ACommand: String;
-      {%H-}AMessage: TTelegramMessageObj);
     procedure TlgrmStartHandler({%H-}ASender: TObject; const {%H-}ACommand: String;
       {%H-}AMessage: TTelegramMessageObj);
     procedure TlgrmHelpHandler({%H-}ASender: TObject; const {%H-}ACommand: String;
@@ -110,7 +104,7 @@ type
     procedure DoReceiveChosenInlineResult(
       AChosenInlineResult: TTelegramChosenInlineResultObj); override;
     procedure DoReceiveInlineQuery(AnInlineQuery: TTelegramInlineQueryObj); override;
-    property BrookAction: TWebhookAction read FBrookAction write SetBrookAction;
+    property BrookAction: TWebhookAction read FBrookAction;
     function IsAdminUser(ChatID: Int64): Boolean; override;
     function IsBanned(ChatID: Int64): Boolean; override;                        
     function IsBotUser(ChatID: Int64): Boolean; override;
@@ -133,14 +127,14 @@ type
     property AutoTranslate: Boolean read FAutoTranslate write FAutoTranslate;
     property CallbackHandlers [const Command: String]: TCallbackEvent read GetCallbackHandlers
       write SetCallbackHandlers;  // It can create command handlers by assigning their to array elements
-    property StartText: String read FStartText write SetStartText; // Text for /start command reply
-    property HelpText: String read FHelpText write SetHelpText;  // Text for /help command reply
+    property StartText: String read FStartText write FStartText; // Text for /start command reply
+    property HelpText: String read FHelpText write FHelpText;  // Text for /help command reply
     property FeedbackText: String read FFeedbackText write FFeedbackText;
     property FeedbackThanks: String read FFeedbackThanks write FFeedbackThanks;
     property UserStatus [ID: Int64]: TUserStatus read GetUserStatus write SetUserStatus;
-    property OnRate: TRateEvent read FOnRate write SetOnRate;
+    property OnRate: TRateEvent read FOnRate write FOnRate; deprecated;
     property OnReceiveDeepLinking: TReceiveDeepLinkEvent read FOnReceiveDeepLinking write SetOnReceiveDeepLinking;
-    property OnReceivFeedback: TMessageEvent read FOnReceivFeedback write FOnReceivFeedback;
+    property OnReceivFeedback: TMessageEvent read FOnReceivFeedback write FOnReceivFeedback; deprecated;
     property PublicStat: Boolean read FPublicStat write SetPublicStat;
     property StatLogger: TtgStatLog read FStatLogger write SetStatLogger;
   end;
@@ -158,7 +152,6 @@ resourcestring
   str_FeedbackThanks='Thanks! %s Your message will be considered!'; // Спасибо, %s! Ваш сообщение будет обязательно рассмотрено!;
   str_FeedbackText='Send us your suggestions or bug reports please';  // Отправьте разработчику бота пожелание, рекомендацию, информацию об ошибке
   str_TxtRplyIsScsChngd='Text reply for command is succesfully changed!'; // Текст сообщения для команды успешно изменен
-  str_BtApIsClsd='Bot app is closed';  // Приложение закрыто
   str_SttstcsNtFnd='Statistics for this date not found'; // Статистика не найдено за указанный день
 //  str_ErrFldTLdSttstcsFl='Error: failed to load statistics file';
   str_EntrDtInFrmt='Please enter the date in format: dd-mm-yyyy';
@@ -189,7 +182,6 @@ const
   cmd_Help = '/help';
   cmd_Stat = '/stat';
   cmd_StatF = '/statf';
-  cmd_Terminate = '/terminate';
   cmd_Feedback = '/feedback';
   cmd_SetStart = '/setstart';
   cmd_SetHelp = '/sethelp';
@@ -266,12 +258,6 @@ end;
 
 { TWebhookBot }
 
-procedure TWebhookBot.SetBrookAction(AValue: TWebhookAction);
-begin
-  if FBrookAction=AValue then Exit;
-  FBrookAction:=AValue;
-end;
-
 procedure TWebhookBot.SetCallbackHandlers(const Command: String;
   AValue: TCallbackEvent);
 begin
@@ -296,18 +282,6 @@ begin
   sendMessage(str_TxtRplyIsScsChngd);
 end;
 
-procedure TWebhookBot.SetHelpText(AValue: String);
-begin
-  if FHelpText=AValue then Exit;
-  FHelpText:=AValue;
-end;
-
-procedure TWebhookBot.SetOnRate(AValue: TRateEvent);
-begin
-  if FOnRate=AValue then Exit;
-  FOnRate:=AValue;
-end;
-
 procedure TWebhookBot.SetOnReceiveDeepLinking(AValue: TReceiveDeepLinkEvent);
 begin
   if FOnReceiveDeepLinking=AValue then Exit;
@@ -318,12 +292,6 @@ procedure TWebhookBot.SetPublicStat(AValue: Boolean);
 begin
   if FPublicStat=AValue then Exit;
   FPublicStat:=AValue;
-end;
-
-procedure TWebhookBot.SetStartText(AValue: String);
-begin
-  if FStartText=AValue then Exit;
-  FStartText:=AValue;
 end;
 
 procedure TWebhookBot.SetStatLogger(AValue: TtgStatLog);
@@ -738,16 +706,6 @@ begin
   FUserPermissions.Values[IntToStr(ID)]:=UserStatusChars[AValue];
 end;
 
-procedure TWebhookBot.TerminateHandler(ASender: TObject; const ACommand: String;
-  AMessage: TTelegramMessageObj);
-begin
-  if not CurrentIsAdminUser then
-    Exit;
-  RequestWhenAnswer:=True;
-  sendMessage(str_BtApIsClsd);
-  BrookApp.Terminate;
-end;
-
 procedure TWebhookBot.TlgrmStartHandler(ASender: TObject;
   const ACommand: String; AMessage: TTelegramMessageObj);
 begin
@@ -1068,7 +1026,6 @@ begin
   CommandHandlers[cmd_Rate]:=    @TlgrmRate;
   CommandHandlers[cmd_Stat]:=    @TlgrmStatHandler;
   CommandHandlers[cmd_StatF]:=   @TlgrmStatFHandler;
-  CommandHandlers[cmd_Terminate]:=@TerminateHandler;
   CommandHandlers[cmd_SetStart]:= @SetCommandReply;
   CommandHandlers[cmd_SetHelp]:=  @SetCommandReply;
   FCallbackHandlers:=TCallbackHandlersMap.create;
