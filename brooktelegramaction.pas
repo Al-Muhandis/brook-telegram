@@ -23,38 +23,17 @@ type
 
   TWebhookAction = class(TBrookAction)
   private
-    FLogDebug: Boolean;
-    FLogger: TEventLog;
-    FOnCallbackQuery: TCallbackEvent;
-    FOnUpdateMessage: TMessageEvent;
-    FToken: String;
     FBot: TWebhookBot;
     procedure SetBot({%H-}AValue: TWebhookBot);
-    procedure SetLogDebug(AValue: Boolean);
-    procedure SetLogger(AValue: TEventLog);
-    procedure SetOnCallbackQuery(AValue: TCallbackEvent);
-    procedure SetOnUpdateMessage(AValue: TMessageEvent);
-    procedure SetToken(AValue: String);
   protected
-    procedure BotMessageHandler(AMessage: TTelegramMessageObj); virtual;
-    { Use Bot.EditOrSendMessage instead... }
-    procedure EditOrSendMessage(const AMessage: String; AParseMode: TParseMode = pmDefault;
-      ReplyMarkup: TReplyMarkup = nil; TryEdit: Boolean = False); deprecated;
-    function IsSimpleUser: Boolean; deprecated; // Use Bot.CurrentIsSimpleUser instead
-    function IsBanned: Boolean; deprecated; // Use Bot.CurrentIsBanned instead
+    { Use Bot.OnReceiveMessage or Bot.DoReceiveMessageUpdate instead }
+    procedure BotMessageHandler({%H-}AMessage: TTelegramMessageObj); virtual; deprecated;
   public
     class function AppDir: String;
     constructor Create; override;
     destructor Destroy; override;
     procedure Post; override;
-    property Token: String read FToken write SetToken; deprecated; // Use Bot.Token instead
-    { Use Bot.OnReceiveCallbackQuery instead }
-    property OnCallbackQuery: TCallbackEvent read FOnCallbackQuery write SetOnCallbackQuery; deprecated;
-    { Use Bot.OnReceiveMessageUpdate instead }
-    property OnUpdateMessage: TMessageEvent read FOnUpdateMessage write SetOnUpdateMessage; deprecated;
-    property Logger: TEventLog read FLogger write SetLogger; deprecated; // Use Bot.Logger instead
     property Bot: TWebhookBot read FBot write SetBot;
-    property LogDebug: Boolean read FLogDebug write SetLogDebug; deprecated;
   end;
 
   { TWebhookBot }
@@ -1121,7 +1100,7 @@ begin
     Exit;
   end;
   StatLog(AMessage.Text, utMessage);
-  FBrookAction.BotMessageHandler(AMessage);
+  FBrookAction.BotMessageHandler(AMessage){%H-};
 end;
 
 procedure TWebhookBot.DoReceiveCallbackQuery(ACallback: TCallbackQueryObj);
@@ -1258,51 +1237,14 @@ end;
 
   { TWebhookAction }
 
-procedure TWebhookAction.SetToken(AValue: String);
-begin
-  if FToken=AValue then Exit;
-  FToken:=AValue;
-  if Assigned(FBot) then
-    FBot.Token:=FToken;
-end;
-
-procedure TWebhookAction.SetOnCallbackQuery(AValue: TCallbackEvent);
-begin
-  if FOnCallbackQuery=AValue then Exit;
-  FOnCallbackQuery:=AValue;
-end;
-
-procedure TWebhookAction.SetOnUpdateMessage(AValue: TMessageEvent);
-begin
-  if FOnUpdateMessage=AValue then Exit;
-  FOnUpdateMessage:=AValue;
-end;
-
 procedure TWebhookAction.SetBot(AValue: TWebhookBot);
 begin
 // todo Does It need a code here? Can it be so?
 end;
 
-procedure TWebhookAction.SetLogDebug(AValue: Boolean);
+procedure TWebhookAction.BotMessageHandler(AMessage: TTelegramMessageObj);
 begin
-  if FLogDebug=AValue then Exit;
-  FLogDebug:=AValue;
-end;
-
-procedure TWebhookAction.SetLogger(AValue: TEventLog);
-begin
-  if FLogger=AValue then Exit;
-  FLogger:=AValue;
-end;
-
-function TWebhookAction.IsSimpleUser: Boolean;
-begin
-  Result:=FBot.CurrentIsSimpleUser;
-end;
-
-function TWebhookAction.IsBanned: Boolean;
-begin
-  Result:=Bot.CurrentIsBanned;
+  // nothing
 end;
 
 class function TWebhookAction.AppDir: String;
@@ -1310,25 +1252,10 @@ begin
   Result:=IncludeTrailingPathDelimiter(ExtractFileDir(ParamStr(0)));
 end;
 
-procedure TWebhookAction.BotMessageHandler(AMessage: TTelegramMessageObj);
-begin
-  if Assigned(FOnUpdateMessage) then
-    FOnUpdateMessage(Self, AMessage);
-end;
-
-{ Sometimes, if the message is sent to the result of the CallBack call,
-it is desirable not to create a new message and edit the message from which the call came }
-procedure TWebhookAction.EditOrSendMessage(const AMessage: String;
-  AParseMode: TParseMode; ReplyMarkup: TReplyMarkup; TryEdit: Boolean);
-begin
-  FBot.EditOrSendMessage(AMessage, AParseMode, ReplyMarkup, TryEdit);
-end;
-
 constructor TWebhookAction.Create;
 begin
   inherited Create;
-  FLogDebug:=False;
-  FBot:=TWebhookBot.Create(FToken, Self);
+  FBot:=TWebhookBot.Create(EmptyStr, Self);
 end;
 
 destructor TWebhookAction.Destroy;
