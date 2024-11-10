@@ -3,6 +3,7 @@
   <Package Version="5">
     <PathDelim Value="\"/>
     <Name Value="BrookTelegram"/>
+    <Author Value="Renat Suleymanov https://github.com/Al-Muhandis/"/>
     <CompilerOptions>
       <Version Value="11"/>
       <PathDelim Value="\"/>
@@ -10,7 +11,9 @@
         <UnitOutputDirectory Value="lib\$(TargetCPU)-$(TargetOS)"/>
       </SearchPaths>
     </CompilerOptions>
-    <Version Release="2"/>
+    <Description Value="Telegram bot plugin for brookfreepascal web framework worked in the webhook mode"/>
+    <License Value="MIT License"/>
+    <Version Release="3"/>
     <Files>
       <Item>
         <Filename Value="brooktelegramaction.pas"/>
@@ -22,6 +25,10 @@
       </Item>
     </Files>
     <RequiredPkgs>
+      <Item>
+        <PackageName Value="fptgbot_ex"/>
+        <MinVersion Build="2" Valid="True"/>
+      </Item>
       <Item>
         <PackageName Value="LazUtils"/>
       </Item>
