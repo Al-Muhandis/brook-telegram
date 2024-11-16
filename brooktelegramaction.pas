@@ -40,7 +40,7 @@ type
   end;
 
 implementation
-{ Please define ni18n (No i18n) for excluding translate unit from uses and exclude i18n support }
+
 uses jsonparser, BrookHttpConsts, strutils, BrookApplication, jsonscanner, LazUTF8, tgutils, dateutils;
 
 { TWebhookBot }
