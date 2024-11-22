@@ -5,7 +5,7 @@ unit brooktelegramaction;
 interface
 
 uses
-  BrookAction, tgtypes, tgsendertypes, sysutils, classes, tgstatlog, eventlog, ghashmap, fpjson, tgbot
+  BrookAction, tgtypes, tgsendertypes, sysutils, classes, fpjson, tgbot
   ;
 
 type
@@ -41,7 +41,9 @@ type
 
 implementation
 
-uses jsonparser, BrookHttpConsts, strutils, BrookApplication, jsonscanner, LazUTF8, tgutils, dateutils;
+uses
+  BrookHttpConsts
+  ;
 
 { TWebhookBot }
 
