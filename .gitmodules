@@ -1,0 +1,6 @@
+[submodule "use/fp-telegram"]
+	path = use/fp-telegram
+	url = git@github.com:Al-Muhandis/fp-telegram.git
+[submodule "use/brookfreepascal"]
+	path = use/brookfreepascal
+	url = git@github.com:risoflora/brookfreepascal.git
