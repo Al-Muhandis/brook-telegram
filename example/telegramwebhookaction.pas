@@ -5,7 +5,8 @@ unit telegramwebhookaction;
 interface
 
 uses
-  BrookAction, brooktelegramaction, tgtypes;
+  BrookAction, brooktelegramaction, tgtypes, tgbot
+  ;
 
 type
 
