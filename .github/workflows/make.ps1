@@ -32,7 +32,7 @@ Function Build-Project {
     @(
         @{
             Cmd = 'lazbuild'
-            Url = 'https://fossies.org/windows/misc/lazarus-3.6-fpc-3.2.2-win64.exe'
+            Url = 'https://fossies.org/windows/misc/lazarus-3.8-fpc-3.2.2-win64.exe'
             Path = "C:\Lazarus"
         }
     ) | Where-Object { ! (Test-Path -Path $_.Path) } |
