@@ -1,0 +1,59 @@
+msgid ""
+msgstr "Content-Type: text/plain; charset=UTF-8"
+
+#: brooktelegramaction.str_btapisclsd
+msgid "Bot app is closed"
+msgstr "O aplicativo do bot está fechado"
+
+#: brooktelegramaction.str_entrdtinfrmt
+msgid "Please enter the date in format: dd-mm-yyyy"
+msgstr "Por favor, digite a data no formato: dd-mm-aaaa"
+
+#: brooktelegramaction.str_errfldtldsttstcsfl
+msgid "Error: failed to load statistics file"
+msgstr "Erro: falha ao carregar arquivo de estatísticas"
+
+#: brooktelegramaction.str_feedbacktext
+msgid "Send us a wish, recommendation or bug report"
+msgstr "Envie-nos um desejo, recomendação ou relatório de erro"
+
+#: brooktelegramaction.str_feedbackthanks
+msgid "Thanks! %s Your message will be considered!"
+msgstr "Obrigado! %s Sua mensagem será considerada!"
+
+#: brooktelegramaction.str_slctsttstcs_line1
+msgid "Select statistics by pressing the button. In addition, the available commands:"
+msgstr "Selecione as estatísticas pressionando o botão. Além disso, os comandos disponíveis:"
+
+#: brooktelegramaction.str_slctsttstcs_line2
+msgid "/stat <i>day</i> - the last records for a specified <i>date</i>, "
+msgstr "/stat <i>dia</i> - os últimos registros para uma <i>data</i> específica, "
+
+#: brooktelegramaction.str_slctsttstcs_line3
+msgid "/statf <i>date</i> - statistics file for the <i>date</i>,"
+msgstr "/statf <i>data</i> - arquivo de estatísticas para a <i>data</i>,"
+
+#: brooktelegramaction.str_slctsttstcs_line4
+msgid "where <i>date</i> is <i>today</i> or <i>yesterday</i> or in format <i>dd-mm-yyyy</i>"
+msgstr "onde a <i>data</i> é <i>hoje</i> ou <i>ontem</i> ou no formato <i>dd-mm-aaaa</i>"
+
+#: brooktelegramaction.str_sttstcsfr
+msgid "Statistics for "
+msgstr "Estatísticas para "
+
+#: brooktelegramaction.str_sttstcsntfnd
+msgid "Statistics for this date not found"
+msgstr "As estatísticas para esta data não foram encontradas"
+
+#: brooktelegramaction.str_today
+msgid "Today"
+msgstr "Hoje"
+
+#: brooktelegramaction.str_txtrplyisscschngd
+msgid "Text reply for command is succesfully changed!"
+msgstr "A Resposta de texto para o comando foi alterada com sucesso!"
+
+#: brooktelegramaction.str_yesterday
+msgid "Yesterday"
+msgstr "Ontem"
+
