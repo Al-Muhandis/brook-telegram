@@ -10,6 +10,10 @@ uses
 
 type
 
+  { Raised when a configuration file cannot be loaded or saved }
+
+  EJSONConfig = class(Exception);
+
   { TTelegramPaymentsConf }
 
   TTelegramPaymentsConf = class
@@ -126,6 +130,9 @@ uses
 var
   MyCriticalSection: TRTLCriticalSection;
 
+{ A missing file is not an error: the object simply keeps its defaults.
+  A corrupted file is an error: silently falling back to the defaults would
+  run the application with an empty token and zeroed settings instead }
 procedure LoadFromJSON(AObject: TObject; const AFileName: String);
 var
   ADeStreamer: TJSONDeStreamer;
@@ -141,6 +148,9 @@ begin
       try
         ADeStreamer.JSONToObject(AJSON.Text, AObject);
       except
+        on E: Exception do
+          raise EJSONConfig.CreateFmt('Error loading configuration from "%s": %s',
+            [AFileName, E.Message]);
       end;
     finally
       AJSON.Free;
@@ -190,6 +200,9 @@ begin
           AJSONObject.Free;
         end;
       except
+        on E: Exception do
+          raise EJSONConfig.CreateFmt('Error saving configuration to "%s": %s',
+            [AFileName, E.Message]);
       end;
     finally
       AJSON.Free;
