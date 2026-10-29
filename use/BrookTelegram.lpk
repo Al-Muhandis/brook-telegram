@@ -30,17 +30,8 @@
         <MinVersion Build="2" Valid="True"/>
       </Item>
       <Item>
-        <PackageName Value="LazUtils"/>
-      </Item>
-      <Item>
-        <PackageName Value="fptelegram"/>
-      </Item>
-      <Item>
         <PackageName Value="BrookRT"/>
         <MinVersion Major="4" Valid="True"/>
-      </Item>
-      <Item>
-        <PackageName Value="FCL"/>
       </Item>
     </RequiredPkgs>
     <UsageOptions>
